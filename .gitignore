@@ -1,0 +1,19 @@
+*.iml
+.gradle
+.kotlin
+/local.properties
+local.properties
+.idea/
+app/.idea/
+.DS_Store
+/build
+app/build/
+/captures
+.externalNativeBuild
+.cxx
+.env
+debug.keystore
+
+# Root test images & metadata
+/*.png
+/metadata.json

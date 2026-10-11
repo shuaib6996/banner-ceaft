@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "550472055221",
+    "project_id": "bannercraft-app-8x92",
+    "storage_bucket": "bannercraft-app-8x92.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550472055221:android:3bbd499ecaebea45bec1fc",
+        "android_client_info": {
+          "package_name": "com.aistudio.bannercraft.x8q2k"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6K0D5oR23frjIwsry55lfgp4cL3Tu2rY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
