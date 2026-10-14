@@ -496,7 +496,10 @@ fun ImageEditorScreen(
             } else if (state.errorMessage != null) {
                 Spacer(modifier = Modifier.height(18.dp))
                 NeumorphicCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(4.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.ErrorOutline,
                             contentDescription = null,
@@ -508,7 +511,9 @@ fun ImageEditorScreen(
                             text = state.errorMessage ?: "An error occurred.",
                             fontSize = 13.sp,
                             color = CoralRed,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                            lineHeight = 18.sp
                         )
                     }
                 }

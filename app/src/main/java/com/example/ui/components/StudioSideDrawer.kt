@@ -200,30 +200,11 @@ fun StudioSideDrawer(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 3. Quick 1-Tap Switch Pills (Google Imagen vs NVIDIA FLUX)
+        // 3. Quick 1-Tap Switch Pills (NVIDIA FLUX vs Google Imagen)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(38.dp)
-                    .then(
-                        if (isGoogle) Modifier.neumorphicInset(shape = CircleShape)
-                        else Modifier.neumorphicConvex(shape = CircleShape, elevation = 2.dp)
-                    )
-                    .clickable { onSwitchToGoogle() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "✨ Google Imagen",
-                    fontSize = 11.sp,
-                    fontWeight = if (isGoogle) FontWeight.ExtraBold else FontWeight.Medium,
-                    color = if (isGoogle) CoralRed else SlateNeutral
-                )
-            }
-
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -242,6 +223,25 @@ fun StudioSideDrawer(
                     color = if (isNvidia) CoralRed else SlateNeutral
                 )
             }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(38.dp)
+                    .then(
+                        if (isGoogle) Modifier.neumorphicInset(shape = CircleShape)
+                        else Modifier.neumorphicConvex(shape = CircleShape, elevation = 2.dp)
+                    )
+                    .clickable { onSwitchToGoogle() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "✨ Google Imagen",
+                    fontSize = 11.sp,
+                    fontWeight = if (isGoogle) FontWeight.ExtraBold else FontWeight.Medium,
+                    color = if (isGoogle) CoralRed else SlateNeutral
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -250,18 +250,18 @@ fun StudioSideDrawer(
         val effectiveImageProfiles = if (savedProfiles.isEmpty()) {
             listOf(
                 ApiProviderConfig(
-                    id = "default_image_gemini",
-                    providerId = "gemini",
-                    providerName = "Google Gemini (Direct)",
-                    imageModel = "imagen-3.0-generate-002",
-                    isOpenAiCompatible = false
-                ),
-                ApiProviderConfig(
                     id = "default_image_nvidia",
                     providerId = "openai_compatible",
                     providerName = "NVIDIA NIM",
                     imageModel = "black-forest-labs/flux.1-dev",
                     isOpenAiCompatible = true
+                ),
+                ApiProviderConfig(
+                    id = "default_image_gemini",
+                    providerId = "gemini",
+                    providerName = "Google Gemini (Direct)",
+                    imageModel = "imagen-3.0-generate-002",
+                    isOpenAiCompatible = false
                 )
             )
         } else savedProfiles

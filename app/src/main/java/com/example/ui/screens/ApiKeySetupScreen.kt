@@ -446,7 +446,13 @@ fun ApiKeySetupScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                ApiProviderPresets.ALL_PRESETS.forEach { preset ->
+                val displayedPresets = if (state.activeTab == ConfigTab.IMAGE) {
+                    listOf(ApiProviderPresets.PRESET_OPENAI_COMPATIBLE, ApiProviderPresets.PRESET_GEMINI) +
+                        ApiProviderPresets.ALL_PRESETS.filter { it.id != "openai_compatible" && it.id != "gemini" }
+                } else {
+                    ApiProviderPresets.ALL_PRESETS
+                }
+                displayedPresets.forEach { preset ->
                     val isSelected = preset.id.equals(selectedPresetId, ignoreCase = true)
                     Box(
                         modifier = Modifier

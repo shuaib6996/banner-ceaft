@@ -140,7 +140,9 @@ class GeminiImageService {
             in 200..299 -> {
                 val base64Data = parseImageBase64(body)
                     ?: throw NoImageGeneratedException("Imagen 3 did not return image data. Try adjusting your prompt.")
-                return Base64.decode(base64Data, Base64.DEFAULT)
+                val decoded = Base64.decode(base64Data, Base64.DEFAULT)
+                ImageSafetyValidator.validateImage(decoded)
+                return decoded
             }
             401, 403 -> {
                 val err = parseGoogleErrorMessage(body)
@@ -200,7 +202,9 @@ class GeminiImageService {
             in 200..299 -> {
                 val base64Data = parseImageBase64(body)
                     ?: throw NoImageGeneratedException("Gemini did not return image data. Try adjusting your prompt.")
-                return Base64.decode(base64Data, Base64.DEFAULT)
+                val decoded = Base64.decode(base64Data, Base64.DEFAULT)
+                ImageSafetyValidator.validateImage(decoded)
+                return decoded
             }
             401, 403 -> {
                 val err = parseGoogleErrorMessage(body)
@@ -287,7 +291,9 @@ class GeminiImageService {
             in 200..299 -> {
                 val base64Data = parseImageBase64(body)
                     ?: throw NoImageGeneratedException("Couldn't edit image with that prompt. Try adjusting your description.")
-                return@withContext Base64.decode(base64Data, Base64.DEFAULT)
+                val decoded = Base64.decode(base64Data, Base64.DEFAULT)
+                ImageSafetyValidator.validateImage(decoded)
+                return@withContext decoded
             }
             401, 403 -> {
                 val err = parseGoogleErrorMessage(body)
@@ -385,42 +391,69 @@ class GeminiImageService {
      * Parses Base64 image payload from both Gemini and Imagen response schemas.
      */
     private fun parseImageBase64(jsonResponse: String): String? {
-        return try {
-            val root = JSONObject(jsonResponse)
+        val root = try {
+            JSONObject(jsonResponse)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing JSON response", e)
+            return null
+        }
 
-            // 1. Gemini generateContent schema: candidates[0].content.parts[0].inlineData.data
-            val candidates = root.optJSONArray("candidates")
-            if (candidates != null && candidates.length() > 0) {
-                val candidate = candidates.getJSONObject(0)
-                val content = candidate.optJSONObject("content")
-                val parts = content?.optJSONArray("parts")
-                if (parts != null) {
-                    for (i in 0 until parts.length()) {
-                        val part = parts.getJSONObject(i)
-                        val inlineData = part.optJSONObject("inlineData")
-                        if (inlineData != null) {
-                            val data = inlineData.optString("data", "")
-                            if (data.isNotBlank()) return data
-                        }
+        // Safety / Block check on promptFeedback
+        val promptFeedback = root.optJSONObject("promptFeedback")
+        val blockReason = promptFeedback?.optString("blockReason", "")
+        if (!blockReason.isNullOrBlank() && !blockReason.equals("BLOCK_REASON_UNSPECIFIED", ignoreCase = true)) {
+            throw ContentModeratedException(
+                "⚠️ Content Moderated: Google AI safety filters blocked this prompt ($blockReason). Please modify your topic or description."
+            )
+        }
+
+        // 1. Gemini generateContent schema: candidates[0].content.parts[0].inlineData.data
+        val candidates = root.optJSONArray("candidates")
+        if (candidates != null && candidates.length() > 0) {
+            val candidate = candidates.getJSONObject(0)
+            val finishReason = candidate.optString("finishReason", "")
+            if (finishReason.contains("SAFETY", ignoreCase = true) ||
+                finishReason.contains("BLOCK", ignoreCase = true) ||
+                finishReason.contains("PROHIBITED", ignoreCase = true)
+            ) {
+                throw ContentModeratedException(
+                    "⚠️ Content Moderated: Google Gemini flagged this prompt under AI safety guidelines ($finishReason). Please adjust your prompt and try again."
+                )
+            }
+
+            val content = candidate.optJSONObject("content")
+            val parts = content?.optJSONArray("parts")
+            if (parts != null) {
+                for (i in 0 until parts.length()) {
+                    val part = parts.getJSONObject(i)
+                    val inlineData = part.optJSONObject("inlineData")
+                    if (inlineData != null) {
+                        val data = inlineData.optString("data", "")
+                        if (data.isNotBlank()) return data
                     }
                 }
             }
+        }
 
-            // 2. Google Imagen 3 predict schema: predictions[0].bytesBase64Encoded
-            val predictions = root.optJSONArray("predictions")
-            if (predictions != null && predictions.length() > 0) {
-                val prediction = predictions.getJSONObject(0)
-                val b64 = prediction.optString("bytesBase64Encoded", "")
-                    .ifBlank { prediction.optString("bytesBase64", "") }
-                    .ifBlank { prediction.optJSONObject("image")?.optString("imageBytes", "") ?: "" }
-                if (b64.isNotBlank()) return b64
+        // 2. Google Imagen 3 predict schema: predictions[0].bytesBase64Encoded
+        val predictions = root.optJSONArray("predictions")
+        if (predictions != null && predictions.length() > 0) {
+            val prediction = predictions.getJSONObject(0)
+            val safetyAttributes = prediction.optJSONObject("safetyAttributes")
+            val blocked = safetyAttributes?.optBoolean("blocked", false) ?: false
+            if (blocked) {
+                throw ContentModeratedException(
+                    "⚠️ Content Moderated: Google Imagen flagged this prompt under AI safety guidelines. Please modify your prompt."
+                )
             }
 
-            null
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing image data from JSON response", e)
-            null
+            val b64 = prediction.optString("bytesBase64Encoded", "")
+                .ifBlank { prediction.optString("bytesBase64", "") }
+                .ifBlank { prediction.optJSONObject("image")?.optString("imageBytes", "") ?: "" }
+            if (b64.isNotBlank()) return b64
         }
+
+        return null
     }
 
     /**

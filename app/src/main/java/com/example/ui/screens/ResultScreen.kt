@@ -253,6 +253,16 @@ fun ResultScreen(
                             },
                             icon = Icons.Default.Refresh
                         )
+
+                        val isModerated = state.generationErrorMessage?.contains("moderat", ignoreCase = true) == true ||
+                            state.generationErrorMessage?.contains("safety", ignoreCase = true) == true
+                        if (isModerated) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            SecondaryButton(
+                                text = "Modify Prompt & Topic ✏️",
+                                onClick = onTweakStyle
+                            )
+                        }
                     }
                 }
             } else {

@@ -306,9 +306,18 @@ class OpenAiCompatibleService {
         }
 
         val firstItem = dataArray.getJSONObject(0)
+        val finishReason = firstItem.optString("finish_reason", "")
+        if (finishReason.equals("CONTENT_FILTER", ignoreCase = true) ||
+            finishReason.equals("SAFETY", ignoreCase = true)
+        ) {
+            throw ContentModeratedException("⚠️ Content Moderated: The image generation was blocked by AI safety guidelines ($finishReason). Please modify your prompt.")
+        }
+
         val b64 = firstItem.optString("b64_json")
         if (b64.isNotBlank()) {
-            return@withContext Base64.decode(b64, Base64.DEFAULT)
+            val decoded = Base64.decode(b64, Base64.DEFAULT)
+            ImageSafetyValidator.validateImage(decoded)
+            return@withContext decoded
         }
 
         // If returned as direct image URL, download image
@@ -319,6 +328,7 @@ class OpenAiCompatibleService {
             if (imgResp.isSuccessful) {
                 val bytes = imgResp.body?.bytes()
                 if (bytes != null && bytes.isNotEmpty()) {
+                    ImageSafetyValidator.validateImage(bytes)
                     return@withContext bytes
                 }
             }
@@ -367,10 +377,23 @@ class OpenAiCompatibleService {
                     val root = JSONObject(bodyString)
                     val artifacts = root.optJSONArray("artifacts")
                     if (artifacts != null && artifacts.length() > 0) {
-                        val b64 = artifacts.getJSONObject(0).optString("base64")
+                        val artifact = artifacts.getJSONObject(0)
+                        val finishReason = artifact.optString("finish_reason", "")
+                        if (finishReason.equals("CONTENT_FILTER", ignoreCase = true) ||
+                            finishReason.equals("SAFETY", ignoreCase = true) ||
+                            finishReason.equals("FILTERED", ignoreCase = true)
+                        ) {
+                            throw ContentModeratedException(
+                                "⚠️ Content Moderated: NVIDIA / FLUX safety guidelines flagged this prompt ($finishReason). Please modify your prompt and try again."
+                            )
+                        }
+
+                        val b64 = artifact.optString("base64")
                         if (b64.isNotBlank()) {
-                            Log.i(TAG, "Successfully generated NVIDIA banner image with $endpoint")
-                            return@withContext Base64.decode(b64, Base64.DEFAULT)
+                            val decoded = Base64.decode(b64, Base64.DEFAULT)
+                            ImageSafetyValidator.validateImage(decoded)
+                            Log.i(TAG, "Successfully generated and verified visible NVIDIA banner image with $endpoint")
+                            return@withContext decoded
                         }
                     }
                 } else {

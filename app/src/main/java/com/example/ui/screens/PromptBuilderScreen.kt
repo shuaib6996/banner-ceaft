@@ -67,7 +67,6 @@ fun PromptBuilderScreen(
     onToggleDark: () -> Unit
 ) {
     val state by bannerViewModel.state.collectAsState()
-    var isDetailsExpanded by remember { mutableStateOf(!state.customPromptDetails.isNullOrBlank()) }
 
     val moodOptions = listOf(
         MoodItem("Energetic", "High-tempo, electric pulse", "⚡"),
@@ -80,10 +79,11 @@ fun PromptBuilderScreen(
 
     val quickStarters = listOf("⚡ Gaming", "🍳 Cooking & Food", "✈️ Travel & Vlog", "💻 Tech & Coding")
 
-    // Validation rules
+    // Validation rules: User can provide either channel topic OR a direct custom prompt (or both!)
     val isTopicValid = state.channelTopic.trim().length >= 3
+    val isPromptValid = (state.customPromptDetails ?: "").trim().length >= 3
     val isMoodValid = state.selectedMood.trim().isNotBlank()
-    val isNextEnabled = isTopicValid && isMoodValid
+    val isNextEnabled = (isTopicValid || isPromptValid) && isMoodValid
 
     val customDetailsLength = (state.customPromptDetails ?: "").length
 
@@ -156,7 +156,7 @@ fun PromptBuilderScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "1. What's your channel topic? *",
+                    text = "1. What's your channel topic? (or Niche)",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -185,16 +185,6 @@ fun PromptBuilderScreen(
                 maxLines = 3
             )
 
-            if (!isTopicValid && state.channelTopic.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Topic must be at least 3 characters.",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = CoralRed
-                )
-            }
-
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(text = "TAP QUICK STARTERS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SlateNeutral)
@@ -220,42 +210,114 @@ fun PromptBuilderScreen(
                     }
                 }
             }
+        }
 
-            if (onNavigateToPromptChat != null) {
-                Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 2. Custom AI Banner Prompt Card (DIRECT PROMPT OPTION)
+        NeumorphicCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = CoralRed,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "2. Custom AI Banner Prompt",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .neumorphicConvex(shape = RoundedCornerShape(12.dp), elevation = 2.dp)
-                        .clickable { onNavigateToPromptChat() }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .background(SafeMint.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = "💬", fontSize = 14.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Need ideas? Brainstorm with Gemini AI Chat",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = CoralRed
-                            )
-                        }
-                        Text(text = "›", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CoralRed)
-                    }
+                    Text(
+                        text = if (isPromptValid) "✔ Active" else "Direct Prompt",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SafeMint
+                    )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Type or paste your complete prompt idea, specific characters, neon lighting, background scene, or aesthetic details:",
+                fontSize = 11.sp,
+                color = SlateNeutral,
+                lineHeight = 15.sp
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            InsetTextField(
+                value = state.customPromptDetails ?: "",
+                onValueChange = {
+                    bannerViewModel.updateCustomPromptDetails(it)
+                    // If channel topic is empty, automatically suggest first few words as topic
+                    if (state.channelTopic.isBlank() && it.isNotBlank()) {
+                        val autoTopic = it.take(30).substringBefore(",").substringBefore(".").trim()
+                        if (autoTopic.length >= 3) {
+                            bannerViewModel.updateChannelTopic(autoTopic)
+                        }
+                    }
+                },
+                placeholder = "e.g., Cyberpunk neon samurai standing in a rainy Tokyo street at night, glowing purple & cyan holographic reflections, high detail 8k cinematic...",
+                singleLine = false,
+                maxLines = 4
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (onNavigateToPromptChat != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { onNavigateToPromptChat() }
+                    ) {
+                        Text(text = "💬", fontSize = 12.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Brainstorm with AI Chat ›",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CoralRed
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
+
+                Text(
+                    text = "$customDetailsLength/500",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (customDetailsLength >= 500) CoralRed else SlateNeutral
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // 2. Pick a Mood / Vibe
+        // 3. Pick a Mood / Vibe
         Text(
-            text = "2. Pick a mood / vibe *",
+            text = "3. Pick a mood / vibe *",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -337,89 +399,6 @@ fun PromptBuilderScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Custom Details Expandable Section with Character Counter
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .neumorphicConvex(shape = RoundedCornerShape(16.dp), elevation = 3.dp)
-                .clickable { isDetailsExpanded = !isDetailsExpanded }
-                .padding(horizontal = 14.dp, vertical = 14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = null,
-                        tint = SlateNeutral,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Add your own details",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .background(SlateNeutral.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "Optional",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SlateNeutral,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (isDetailsExpanded) "▲" else "▼",
-                    fontSize = 12.sp,
-                    color = SlateNeutral
-                )
-            }
-        }
-
-        AnimatedVisibility(visible = isDetailsExpanded) {
-            Column(modifier = Modifier.padding(top = 12.dp)) {
-                InsetTextField(
-                    value = state.customPromptDetails ?: "",
-                    onValueChange = { bannerViewModel.updateCustomPromptDetails(it) },
-                    placeholder = "Specify subjects, elements, characters, lighting style...",
-                    singleLine = false,
-                    maxLines = 3
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Text(
-                        text = "$customDetailsLength/150",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (customDetailsLength >= 150) CoralRed else SlateNeutral
-                    )
-                }
-            }
-        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

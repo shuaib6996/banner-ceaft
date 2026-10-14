@@ -83,6 +83,7 @@ bannerflow-navigator/
         │   │   │   ├── GeminiChatService.kt   # Gemini 3.8 Flash multi-turn chat client
         │   │   │   ├── GeminiImageService.kt  # Gemini / Imagen 3 image REST Client
         │   │   │   ├── ImageProcessingService.kt # Safe area scaling & bitmap composition
+        │   │   │   ├── ImageSafetyValidator.kt# Content moderation & black image detection
         │   │   │   ├── LogoOverlayService.kt  # Avatar/logo overlay placement
         │   │   │   ├── OpenAiCompatibleService.kt # NVIDIA NIM (FLUX.1 Dev & LLaMA) client
         │   │   │   ├── SaveService.kt         # MediaStore bitmap export
@@ -144,7 +145,10 @@ bannerflow-navigator/
    - Allows users to input any existing image and apply AI edit prompts (via `GeminiImageService.editImage()`) to refine styles, adjust lighting, or modify elements.
 
 4. **History & Gallery (`HistoryScreen`):**
-   - Displays previously generated banners saved locally in Room, allowing instant inspection, re-editing, or re-exporting.
+   - Structured into two dedicated tabs: **`[ 🎨 Images ]`** and **`[ 💬 Prompts ]`**.
+   - Features **Select All / Deselect All**, live counter badge `(N)`, and **"Delete Selected (N)"** batch actions in both tabs.
+   - Images Tab: full visual preview, 1-tap restore to studio/wizard, and individual deletion.
+   - Prompts Tab: clean sunken card view of complete prompt text, 1-tap clipboard copy, and "Use for Banner 🚀" 1-tap loader.
 
 ---
 

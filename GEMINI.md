@@ -45,6 +45,10 @@ This document provides behavioral constraints, styling rules, and coding convent
   - `generationConfig.responseModalities`: Must include `"IMAGE"`.
   - `generationConfig.imageConfig.aspectRatio`: Must map to valid aspect ratios (`"16:9"`, `"4:3"`, `"1:1"`, `"9:16"`).
 - Always handle HTTP 401/403 (Invalid Key), HTTP 429 (Rate Limit), and network disconnection gracefully with user-friendly error messages.
+- **Content Moderation & Black-Image Detection**:
+  - Both Gemini and NVIDIA/FLUX models may reject prompts or return pitch-black images due to built-in safety filters.
+  - Handled via [`ImageSafetyValidator.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/data/ImageSafetyValidator.kt) and `ContentModeratedException`.
+  - When detected, the app catches the condition immediately and presents a clean, user-friendly notice: *"⚠️ Content Moderated: This prompt was flagged by AI safety guidelines. Please modify your prompt and try again."* with a quick 1-tap action to tweak the prompt.
 
 ---
 
@@ -71,5 +75,8 @@ This document provides behavioral constraints, styling rules, and coding convent
    - Users can use one provider (e.g. NVIDIA NIM `meta/llama-3.2-11b-vision-instruct`) for Chat brainstorming and a different provider (e.g. Google Gemini `imagen-3.0-generate-002` or Flux) for Banner rendering.
    - [`ApiKeySetupScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/ApiKeySetupScreen.kt) provides dedicated tabs: `[ 💬 AI Chat Setup ]` and `[ 🎨 Image Setup ]`.
    - Automatic API key sanitization (`sanitizeApiKey`) strips surrounding quotes, prefixes (like `api key:`, `bearer `), and leading/trailing punctuation to prevent HTTP 401 JWT header errors.
-
-
+5. **History & Prompt Architecture**:
+   - [`HistoryScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/HistoryScreen.kt) is structured into dual tabs: `[ 🎨 Images ]` and `[ 💬 Prompts ]`.
+   - Both sections support multi-selection with "Select All / Deselect All", selection counter badge, and batch "Delete Selected" via [`BannerHistoryDao.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/data/BannerHistoryDao.kt).
+   - In [`PromptBuilderScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/PromptBuilderScreen.kt), user can directly input custom AI banner prompts without requiring a channel topic.
+   - Image models priority auto-selects NVIDIA NIM (`black-forest-labs/flux.1-dev`) first across all screens, followed by Google Imagen 3 (`imagen-3.0-generate-002`).

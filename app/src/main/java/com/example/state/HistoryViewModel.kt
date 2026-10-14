@@ -39,6 +39,13 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun deleteItems(ids: Set<Long>) {
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            repository.deleteBanners(ids.toList())
+        }
+    }
+
     fun clearAllHistory() {
         viewModelScope.launch {
             repository.clearAll()

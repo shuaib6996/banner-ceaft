@@ -180,74 +180,77 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Multi-Screen Preview Hero Card
+            // Start Banner Hero Card
             NeumorphicCard {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            bannerViewModel.resetToDefaults()
+                            onStartNewBanner()
+                        },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "📱 PREVIEW",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = SlateNeutral,
-                        letterSpacing = 0.5.sp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .background(SafeMint.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "● 1546 × 423 Safe",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SafeMint,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .neumorphicConvex(shape = CircleShape, elevation = 3.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "🪄", fontSize = 22.sp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Start Banner",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .background(SafeMint.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "1546 × 423 Safe",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SafeMint,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Design YouTube safe-zone banners with AI",
+                                fontSize = 12.sp,
+                                color = SlateNeutral,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = "Create ›",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CoralRed
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
-
-                // Canvas Graphic Simulation
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(110.dp)
-                        .neumorphicInset(shape = RoundedCornerShape(16.dp))
-                        .padding(12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            modifier = Modifier
-                                .border(1.5.dp, SafeMint, RoundedCornerShape(8.dp))
-                                .background(Color.White.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
-                        ) {
-                            Text(
-                                text = "• LO-FI NIGHTS\nAll Devices View",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = Color.Black,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "✔ Zero Crop Risk",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SafeMint
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 PrimaryButton(
                     text = "Start New Banner",

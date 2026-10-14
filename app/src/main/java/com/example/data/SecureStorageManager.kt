@@ -529,17 +529,35 @@ class SecureStorageManager(context: Context) {
                 nvidiaImage = updated
             }
 
-            val targetedActive = cleanedImageProfiles.find { it.id == activeId }
-            val active = targetedActive ?: geminiImage
-            saveImageProviderProfiles(cleanedImageProfiles, active.id)
-            Pair(cleanedImageProfiles, active)
+            // Order: NVIDIA first, Gemini second, followed by any other profiles
+            val orderedList = mutableListOf<ApiProviderConfig>()
+            orderedList.add(nvidiaImage)
+            orderedList.add(geminiImage)
+            cleanedImageProfiles.forEach { p ->
+                if (p.id != nvidiaImage.id && p.id != geminiImage.id) {
+                    orderedList.add(p)
+                }
+            }
+
+            // Auto-select NVIDIA first, then Gemini
+            val targetedActive = orderedList.find { it.id == activeId }
+            val active = if (targetedActive != null && targetedActive.id != "default_image_gemini") {
+                targetedActive
+            } else {
+                nvidiaImage
+            }
+            saveImageProviderProfiles(orderedList, active.id)
+            Pair(orderedList, active)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load image provider profiles", e)
             val default = ApiProviderConfig(
-                id = "default_image_gemini",
-                providerId = "gemini",
-                providerName = "Google Gemini (Direct)",
-                imageModel = "imagen-3.0-generate-002"
+                id = "default_image_nvidia",
+                providerId = "openai_compatible",
+                providerName = "NVIDIA NIM (Images)",
+                baseUrl = "https://integrate.api.nvidia.com/v1",
+                apiKey = try { loadNvidiaApiKey() } catch (_: Exception) { "" },
+                imageModel = "black-forest-labs/flux.1-dev",
+                isOpenAiCompatible = true
             )
             Pair(listOf(default), default)
         }

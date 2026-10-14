@@ -31,13 +31,13 @@ data class ApiKeyState(
         isOpenAiCompatible = true
     ),
     val imageConfig: ApiProviderConfig = ApiProviderConfig(
-        id = "default_image_gemini",
-        providerId = "gemini",
-        providerName = "Google Gemini (Direct)",
-        baseUrl = "https://generativelanguage.googleapis.com",
+        id = "default_image_nvidia",
+        providerId = "openai_compatible",
+        providerName = "NVIDIA NIM (Images)",
+        baseUrl = "https://integrate.api.nvidia.com/v1",
         apiKey = "",
-        imageModel = "imagen-3.0-generate-002",
-        isOpenAiCompatible = false
+        imageModel = "black-forest-labs/flux.1-dev",
+        isOpenAiCompatible = true
     ),
     val savedChatProfiles: List<ApiProviderConfig> = emptyList(),
     val savedImageProfiles: List<ApiProviderConfig> = emptyList(),

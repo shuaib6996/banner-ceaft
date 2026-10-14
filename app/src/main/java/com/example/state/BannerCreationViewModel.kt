@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.BannerDatabase
 import com.example.data.BannerHistoryRepository
+import com.example.data.ContentModeratedException
 import com.example.data.DefaultAvatarHelper
 import com.example.data.GeminiImageService
 import com.example.data.ImageProcessingService
@@ -160,16 +161,20 @@ class BannerCreationViewModel : ViewModel() {
         val colors = current.selectedColors
         val details = current.customPromptDetails?.trim() ?: ""
 
-        val topicText = if (topic.isBlank()) "a YouTube channel" else topic
-        val colorClause = if (colors.isNotEmpty()) {
-            ", incorporating ${colors.joinToString(", ")} accent color tones"
-        } else ""
+        val prompt = if (topic.isBlank() && details.isNotBlank()) {
+            details
+        } else {
+            val topicText = if (topic.isBlank()) "a YouTube channel" else topic
+            val colorClause = if (colors.isNotEmpty()) {
+                ", incorporating ${colors.joinToString(", ")} accent color tones"
+            } else ""
 
-        val detailsClause = if (details.isNotBlank()) {
-            ". Additional creator notes: $details"
-        } else ""
+            val detailsClause = if (details.isNotBlank()) {
+                ". Additional creator notes: $details"
+            } else ""
 
-        val prompt = "A $mood themed background design for $topicText$colorClause$detailsClause."
+            "A $mood themed background design for $topicText$colorClause$detailsClause."
+        }
 
         _state.update { it.copy(basePromptFragment = prompt) }
         return prompt
@@ -542,6 +547,14 @@ class BannerCreationViewModel : ViewModel() {
                         generationErrorMessage = if (it.finalImageBytes == null && it.generationErrorMessage == null) {
                             "Something went wrong preparing your banner. Please try again."
                         } else it.generationErrorMessage
+                    )
+                }
+            } catch (e: ContentModeratedException) {
+                _state.update {
+                    it.copy(
+                        isGenerating = false,
+                        generationStageMessage = null,
+                        generationErrorMessage = e.message ?: "⚠️ Content Moderated: This prompt was flagged by AI safety guidelines. Please modify your prompt and try again."
                     )
                 }
             } catch (e: InvalidApiKeyException) {

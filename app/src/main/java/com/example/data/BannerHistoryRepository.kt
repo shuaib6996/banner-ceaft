@@ -21,6 +21,12 @@ class BannerHistoryRepository(private val dao: BannerHistoryDao) {
         dao.deleteBannerById(id)
     }
 
+    suspend fun deleteBanners(ids: List<Long>) {
+        if (ids.isNotEmpty()) {
+            dao.deleteBannersByIds(ids)
+        }
+    }
+
     suspend fun clearAll() {
         dao.clearHistory()
     }

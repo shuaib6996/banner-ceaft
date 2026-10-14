@@ -3,6 +3,7 @@ package com.example.state
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.ContentModeratedException
 import com.example.data.GeminiImageService
 import com.example.data.InvalidApiKeyException
 import com.example.data.NoImageGeneratedException
@@ -211,6 +212,14 @@ class ImageEditorViewModel : ViewModel() {
                     current.prompt.ifBlank { current.editInstruction },
                     outputBytes
                 )
+            } catch (e: ContentModeratedException) {
+                _state.update {
+                    it.copy(
+                        isProcessing = false,
+                        stageMessage = null,
+                        errorMessage = e.message ?: "⚠️ Content Moderated: This prompt was flagged by AI safety guidelines. Please modify your prompt and try again."
+                    )
+                }
             } catch (e: InvalidApiKeyException) {
                 _state.update {
                     it.copy(

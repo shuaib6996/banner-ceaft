@@ -745,15 +745,6 @@ fun ImageModelSwitcherDialog(
                     val effectiveImageProfiles = if (savedProfiles.isEmpty()) {
                         listOf(
                             ApiProviderConfig(
-                                id = "default_image_gemini",
-                                providerId = "gemini",
-                                providerName = "Google Gemini (Direct)",
-                                baseUrl = "https://generativelanguage.googleapis.com",
-                                apiKey = "",
-                                imageModel = "imagen-3.0-generate-002",
-                                isOpenAiCompatible = false
-                            ),
-                            ApiProviderConfig(
                                 id = "default_image_nvidia",
                                 providerId = "openai_compatible",
                                 providerName = "NVIDIA NIM (Images)",
@@ -761,6 +752,15 @@ fun ImageModelSwitcherDialog(
                                 apiKey = "",
                                 imageModel = "black-forest-labs/flux.1-dev",
                                 isOpenAiCompatible = true
+                            ),
+                            ApiProviderConfig(
+                                id = "default_image_gemini",
+                                providerId = "gemini",
+                                providerName = "Google Gemini (Direct)",
+                                baseUrl = "https://generativelanguage.googleapis.com",
+                                apiKey = "",
+                                imageModel = "imagen-3.0-generate-002",
+                                isOpenAiCompatible = false
                             )
                         )
                     } else savedProfiles
@@ -879,12 +879,13 @@ fun ImageModelSwitcherDialog(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             val popularList = listOf(
+                                "black-forest-labs/flux.1-dev",
+                                "black-forest-labs/flux.1-schnell",
                                 "qwen-image",
                                 "qwen-image-edit",
                                 "flux.2-klein-4b",
                                 "stable-diffusion-3.5-large",
-                                "FLUX.1-Kontext-dev",
-                                "qwen-image-edit-nvpcb-ovsl2sl"
+                                "FLUX.1-Kontext-dev"
                             )
                             Row(
                                 modifier = Modifier

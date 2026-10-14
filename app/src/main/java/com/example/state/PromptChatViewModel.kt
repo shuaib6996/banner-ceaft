@@ -118,6 +118,12 @@ class PromptChatViewModel : ViewModel() {
             } catch (e: Exception) {
                 val rawMsg = e.message ?: "Failed to generate AI response. Please try again."
                 val userFriendlyMsg = when {
+                    rawMsg.contains("SAFETY", ignoreCase = true) ||
+                    rawMsg.contains("PROHIBITED_CONTENT", ignoreCase = true) ||
+                    rawMsg.contains("content_filter", ignoreCase = true) ||
+                    rawMsg.contains("safety policy", ignoreCase = true) -> {
+                        "⚠️ Content Moderated: This message was flagged by AI safety guidelines. Please modify your text and try again."
+                    }
                     rawMsg.contains("API_KEY_SERVICE_BLOCKED", ignoreCase = true) || rawMsg.contains("Requests to this API generativelanguage.googleapis.com method", ignoreCase = true) -> {
                         "This Google API key does not have Generative Language API access enabled. Please create a free Gemini API key from Google AI Studio (aistudio.google.com) or switch to NVIDIA NIM!"
                     }
