@@ -353,6 +353,72 @@ class ApiKeyViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
+     * Instantly switches active image profile to NVIDIA NIM (FLUX.1 Dev).
+     */
+    fun switchToNvidiaImage() {
+        viewModelScope.launch {
+            val profiles = _state.value.savedImageProfiles
+            var target = profiles.find {
+                it.providerId == "openai_compatible" || it.baseUrl.contains("nvidia", ignoreCase = true)
+            }
+            if (target == null) {
+                val savedNvidiaKey = storageManager.loadNvidiaApiKey()
+                target = ApiProviderConfig(
+                    id = "default_image_nvidia",
+                    providerId = "openai_compatible",
+                    providerName = "NVIDIA NIM (Images)",
+                    baseUrl = "https://integrate.api.nvidia.com/v1",
+                    apiKey = savedNvidiaKey,
+                    imageModel = "black-forest-labs/flux.1-dev",
+                    isOpenAiCompatible = true
+                )
+                val updatedProfiles = listOf(target) + profiles
+                _state.update {
+                    it.copy(
+                        imageConfig = target,
+                        savedImageProfiles = updatedProfiles
+                    )
+                }
+                storageManager.saveImageProviderProfiles(updatedProfiles, target.id)
+            } else {
+                switchActiveImageProfile(target.id)
+            }
+        }
+    }
+
+    /**
+     * Instantly switches active image profile to Google Gemini (Imagen 3).
+     */
+    fun switchToGoogleImage() {
+        viewModelScope.launch {
+            val profiles = _state.value.savedImageProfiles
+            var target = profiles.find { it.providerId == "gemini" }
+            if (target != null) {
+                switchActiveImageProfile(target.id)
+            } else {
+                val googleKey = storageManager.loadGoogleApiKey().orEmpty()
+                target = ApiProviderConfig(
+                    id = "default_image_gemini",
+                    providerId = "gemini",
+                    providerName = "Google Gemini (Direct)",
+                    baseUrl = "https://generativelanguage.googleapis.com",
+                    apiKey = googleKey,
+                    imageModel = "imagen-3.0-generate-002",
+                    isOpenAiCompatible = false
+                )
+                val updatedProfiles = listOf(target) + profiles
+                _state.update {
+                    it.copy(
+                        imageConfig = target,
+                        savedImageProfiles = updatedProfiles
+                    )
+                }
+                storageManager.saveImageProviderProfiles(updatedProfiles, target.id)
+            }
+        }
+    }
+
+    /**
      * Selects a provider preset for the currently active editing profile.
      * Switches to existing profile if one exists for this provider to prevent accidental overwrites.
      */

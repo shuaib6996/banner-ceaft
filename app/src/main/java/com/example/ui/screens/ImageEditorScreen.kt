@@ -30,14 +30,19 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,9 +56,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.state.ApiKeyViewModel
+import com.example.state.HistoryViewModel
 import com.example.state.ImageEditorMode
 import com.example.state.ImageEditorViewModel
 import com.example.ui.components.InsetTextField
@@ -61,6 +68,7 @@ import com.example.ui.components.NeumorphicCard
 import com.example.ui.components.PrimaryButton
 import com.example.ui.components.ScreenHeader
 import com.example.ui.components.SecondaryButton
+import com.example.ui.components.StudioSideDrawer
 import com.example.ui.theme.CoralRed
 import com.example.ui.theme.SafeMint
 import com.example.ui.theme.SlateNeutral
@@ -72,6 +80,8 @@ import kotlinx.coroutines.launch
 fun ImageEditorScreen(
     imageEditorViewModel: ImageEditorViewModel,
     apiKeyViewModel: ApiKeyViewModel,
+    historyViewModel: HistoryViewModel? = null,
+    onNavigateToSettings: (() -> Unit)? = null,
     onBack: () -> Unit,
     isDark: Boolean,
     onToggleDark: () -> Unit
@@ -82,6 +92,8 @@ fun ImageEditorScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val historyItems = historyViewModel?.recentBannersState?.collectAsState()?.value ?: emptyList()
 
     // Android Photo Picker launcher for zero-permission image upload
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -101,26 +113,128 @@ fun ImageEditorScreen(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp)
-        ) {
-            ScreenHeader(
-                title = "AI Image Studio",
-                stepLabel = "Gemini 3.1 Flash Image AI",
-                onBackClick = onBack,
-                isDark = isDark,
-                onToggleDark = onToggleDark
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            StudioSideDrawer(
+                currentConfig = apiKeyState.imageConfig,
+                savedProfiles = apiKeyState.savedImageProfiles,
+                onSelectProfile = { profileId ->
+                    apiKeyViewModel.switchActiveImageProfile(profileId)
+                },
+                onSelectModel = { modelId ->
+                    apiKeyViewModel.switchImageModel(modelId)
+                },
+                onSwitchToGoogle = {
+                    apiKeyViewModel.switchToGoogleImage()
+                },
+                onSwitchToNvidia = {
+                    apiKeyViewModel.switchToNvidiaImage()
+                },
+                recentHistory = historyItems,
+                onSelectHistoryItem = { item ->
+                    imageEditorViewModel.updatePrompt(item.prompt)
+                    imageEditorViewModel.setSourceImage(item.imageBytes)
+                    scope.launch {
+                        drawerState.close()
+                        snackbarHostState.showSnackbar("Loaded banner from history into Studio!")
+                    }
+                },
+                onClose = {
+                    scope.launch { drawerState.close() }
+                },
+                onManageApiKeys = {
+                    scope.launch { drawerState.close() }
+                    onNavigateToSettings?.invoke()
+                },
+                isDark = isDark
             )
+        }
+    ) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                ScreenHeader(
+                    title = "AI Image Studio",
+                    stepLabel = "${apiKeyState.imageConfig.providerName} Engine",
+                    onBackClick = onBack,
+                    isDark = isDark,
+                    onToggleDark = onToggleDark
+                )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Interactive Engine Switcher Pill & Side Panel Drawer Trigger Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val hasKey = apiKeyState.imageConfig.apiKey.isNotBlank() || apiKeyState.imageConfig.providerId == "ollama"
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .neumorphicConvex(shape = CircleShape, elevation = 2.dp)
+                            .clickable { scope.launch { drawerState.open() } }
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(if (hasKey) SafeMint else CoralRed, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "${apiKeyState.imageConfig.providerName}: ${apiKeyState.imageConfig.imageModel.substringAfterLast('/')}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = "▾ Switch",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CoralRed
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .neumorphicConvex(shape = CircleShape, elevation = 3.dp)
+                            .clickable { scope.launch { drawerState.open() } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Engines & History",
+                            tint = CoralRed,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
 
             // Mobile-Friendly Mode Selector Tabs (Create vs Edit)
             Row(
@@ -346,7 +460,16 @@ fun ImageEditorScreen(
             PrimaryButton(
                 text = if (state.isProcessing) "Processing Image..." else if (state.mode == ImageEditorMode.CREATE) "Generate Image 🚀" else "Apply Image Edits 🪄",
                 enabled = !state.isProcessing,
-                onClick = { imageEditorViewModel.processImage(apiKeyState.apiKey, apiKeyState.selectedModel) },
+                onClick = {
+                    imageEditorViewModel.processImage(
+                        apiKey = apiKeyState.imageConfig.apiKey,
+                        model = apiKeyState.imageConfig.imageModel,
+                        providerConfig = apiKeyState.imageConfig,
+                        onSaveToHistory = { title, prompt, bytes ->
+                            historyViewModel?.saveToHistory(title, prompt, bytes)
+                        }
+                    )
+                },
                 icon = Icons.Default.AutoAwesome
             )
 
@@ -470,3 +593,6 @@ fun ImageEditorScreen(
         }
     }
 }
+}
+
+

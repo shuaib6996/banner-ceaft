@@ -101,16 +101,18 @@ bannerflow-navigator/
         │   │   │   └── PromptChatViewModel.kt # AI Prompt Chat brainstorming state
         │   │   └── ui/
         │   │       ├── components/
-        │   │       │   └── UiComponents.kt    # Neumorphic buttons, cards, headers
+        │   │       │   ├── ChatSideDrawer.kt      # Slide-out drawer with chat models & prompt history
+        │   │       │   ├── StudioSideDrawer.kt    # Slide-out drawer with image models & banner history
+        │   │       │   └── UiComponents.kt        # Neumorphic buttons, cards, headers
         │   │       ├── screens/
-        │   │       │   ├── ApiKeySetupScreen.kt # Decoupled Chat & Image key configuration
+        │   │       │   ├── ApiKeySetupScreen.kt   # Decoupled Chat & Image key configuration
         │   │       │   ├── GenerationSettingsScreen.kt # Aspect ratio, model picker, overlays
-        │   │       │   ├── HistoryScreen.kt   # Saved banners gallery & viewer
-        │   │       │   ├── HomeScreen.kt      # Dashboard & navigation hub
-        │   │       │   ├── ImageEditorScreen.kt # Image Studio prompt-based editor
-        │   │       │   ├── LoginScreen.kt     # Firebase Auth login/signup screen
+        │   │       │   ├── HistoryScreen.kt       # Saved banners gallery & viewer
+        │   │       │   ├── HomeScreen.kt          # Dashboard & navigation hub
+        │   │       │   ├── ImageEditorScreen.kt   # Multi-engine AI Image Studio with side panel & history
+        │   │       │   ├── LoginScreen.kt         # Firebase Auth login/signup screen
         │   │       │   ├── PromptBuilderScreen.kt # Mood, topic, and style wizard
-        │   │       │   ├── PromptChatScreen.kt# AI prompt brainstorm chat with model switcher
+        │   │       │   ├── PromptChatScreen.kt    # AI prompt chat with side panel & prompt history
         │   │       │   ├── ResultScreen.kt    # High-res banner view & export
         │   │       │   ├── SettingsScreen.kt  # App settings & profile manager
         │   │       │   └── SplashScreen.kt    # Splash launcher & auth routing

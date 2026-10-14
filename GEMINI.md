@@ -55,17 +55,21 @@ This document provides behavioral constraints, styling rules, and coding convent
    - All profiles are serialized and securely encrypted via [`SecureStorageManager.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/data/SecureStorageManager.kt) (`saveAllProviderProfiles` / `loadAllProviderProfiles`).
    - Profile management (active profile switching, adding new keys, deleting profiles) is orchestrated by [`ApiKeyViewModel.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/state/ApiKeyViewModel.kt).
 
-2. **In-Chat Real-Time Model Switching**:
-   - Users can switch chat models directly from [`PromptChatScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/PromptChatScreen.kt) without visiting Settings.
-   - Tapping the active model pill opens `ChatModelSwitcherDialog` with instant 1-tap switching across Gemini models (`gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash`, `gemini-1.5-flash`, etc.) and custom OpenAI-compatible models.
+2. **In-Chat Real-Time Model Switching & Side Panel**:
+   - Users can switch chat models directly from [`PromptChatScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/PromptChatScreen.kt) via [`ChatSideDrawer.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/components/ChatSideDrawer.kt).
+   - Tapping the active model pill or the `≡ Panel` button slides out the drawer with instant 1-tap switching across Gemini models (`gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash`, `gemini-1.5-flash`, etc.) and NVIDIA NIM / OpenAI models (`meta/llama-3.2-11b-vision-instruct`, etc.).
+   - Side panel displays past prompt ideas & creative banner history with 1-tap reuse, plus quick action to start a new chat session.
 
-3. **In-Studio Real-Time Image Model Switching**:
-   - Users can switch image generation engines directly from [`GenerationSettingsScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/GenerationSettingsScreen.kt) before generating banners.
-   - Tapping the Image Model card opens `ImageModelSwitcherDialog` to switch between `imagen-3.0-generate-002`, `imagen-3`, `gemini-3.1-flash-image`, `qwen-image`, `flux.2-klein-4b`, `stable-diffusion-3.5-large`, etc.
+3. **In-Studio Real-Time Image Model Switching & Side Panel**:
+   - In [`ImageEditorScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/ImageEditorScreen.kt) (AI Image Studio), users can switch image generation engines via [`StudioSideDrawer.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/components/StudioSideDrawer.kt).
+   - Filtered **strictly to image models only**: Google Imagen 3 (`imagen-3.0-generate-002`, `gemini-3.1-flash-image`), NVIDIA FLUX (`black-forest-labs/flux.1-dev`), Stable Diffusion 3.5 Large, and any user-saved image profiles.
+   - Side panel includes thumbnail visual previews of past generated banners with a "Load" button that reloads the image and prompt directly into the studio workspace.
+   - Also supported in [`GenerationSettingsScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/GenerationSettingsScreen.kt) via `ImageModelSwitcherDialog`.
 
 4. **Separated Chat & Image Provider Configurations**:
    - AI Chat (`chatConfig`) and Banner Image Generation (`imageConfig`) are completely decoupled.
    - Users can use one provider (e.g. NVIDIA NIM `meta/llama-3.2-11b-vision-instruct`) for Chat brainstorming and a different provider (e.g. Google Gemini `imagen-3.0-generate-002` or Flux) for Banner rendering.
    - [`ApiKeySetupScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/ApiKeySetupScreen.kt) provides dedicated tabs: `[ 💬 AI Chat Setup ]` and `[ 🎨 Image Setup ]`.
    - Automatic API key sanitization (`sanitizeApiKey`) strips surrounding quotes, prefixes (like `api key:`, `bearer `), and leading/trailing punctuation to prevent HTTP 401 JWT header errors.
+
 

@@ -39,15 +39,20 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.ui.window.Dialog
 import com.example.data.ApiProviderConfig
 import com.example.data.ApiProviderPresets
 import com.example.data.ModelOption
+import com.example.state.HistoryViewModel
+import com.example.ui.components.ChatSideDrawer
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -88,6 +93,8 @@ fun PromptChatScreen(
     promptChatViewModel: PromptChatViewModel,
     apiKeyViewModel: ApiKeyViewModel,
     bannerViewModel: BannerCreationViewModel,
+    historyViewModel: HistoryViewModel? = null,
+    onNavigateToSettings: (() -> Unit)? = null,
     onUsePromptInBanner: () -> Unit,
     onBack: () -> Unit,
     isDark: Boolean,
@@ -95,6 +102,8 @@ fun PromptChatScreen(
 ) {
     val chatState by promptChatViewModel.state.collectAsState()
     val apiKeyState by apiKeyViewModel.state.collectAsState()
+    val historyList by historyViewModel?.recentBannersState?.collectAsState() ?: remember { mutableStateOf(emptyList()) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -134,8 +143,46 @@ fun PromptChatScreen(
         )
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ChatSideDrawer(
+                currentConfig = apiKeyState.chatConfig,
+                savedProfiles = apiKeyState.savedChatProfiles,
+                onSelectProfile = { profileId ->
+                    apiKeyViewModel.switchActiveChatProfile(profileId)
+                },
+                onSelectModel = { modelId ->
+                    apiKeyViewModel.switchChatModel(modelId)
+                },
+                onSwitchToGoogle = {
+                    apiKeyViewModel.switchToGoogleChat()
+                },
+                onSwitchToNvidia = {
+                    apiKeyViewModel.switchToNvidiaChat()
+                },
+                recentHistory = historyList,
+                onSelectPromptIdea = { promptText ->
+                    inputMessage = promptText
+                    scope.launch { drawerState.close() }
+                },
+                onNewChat = {
+                    promptChatViewModel.clearChat()
+                    scope.launch { drawerState.close() }
+                },
+                onClose = {
+                    scope.launch { drawerState.close() }
+                },
+                onManageApiKeys = {
+                    scope.launch { drawerState.close() }
+                    onNavigateToSettings?.invoke()
+                },
+                isDark = isDark
+            )
+        }
+    ) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             Column(
                 modifier = Modifier
@@ -256,7 +303,7 @@ fun PromptChatScreen(
                     onToggleDark = onToggleDark
                 )
 
-                // Active Model Info Pill & Clear Button
+                // Active Model Info Pill & Panel / Clear Buttons
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -268,7 +315,11 @@ fun PromptChatScreen(
                         modifier = Modifier
                             .weight(1f, fill = false)
                             .neumorphicConvex(shape = RoundedCornerShape(12.dp), elevation = 2.dp)
-                            .clickable { showModelSwitcherDialog = true }
+                            .clickable {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
                             .padding(horizontal = 10.dp, vertical = 5.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -290,20 +341,43 @@ fun PromptChatScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "▼",
-                                fontSize = 9.sp,
+                                text = "▾ Switch",
+                                fontSize = 10.sp,
                                 color = CoralRed,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Side Panel Button
+                    Box(
+                        modifier = Modifier
+                            .neumorphicConvex(shape = CircleShape, elevation = 2.dp)
+                            .clickable {
+                                scope.launch {
+                                    if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                                }
+                            }
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "≡ Panel",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     Box(
                         modifier = Modifier
                             .neumorphicConvex(shape = CircleShape, elevation = 2.dp)
                             .clickable { promptChatViewModel.clearChat() }
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -463,6 +537,7 @@ fun PromptChatScreen(
             }
         }
     }
+}
 }
 
 @Composable

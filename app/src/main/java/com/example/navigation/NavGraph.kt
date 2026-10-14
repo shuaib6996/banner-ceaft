@@ -167,6 +167,8 @@ fun AppNavHost(
                 promptChatViewModel = promptChatViewModel,
                 apiKeyViewModel = apiKeyViewModel,
                 bannerViewModel = bannerViewModel,
+                historyViewModel = historyViewModel,
+                onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onUsePromptInBanner = {
                     navController.navigate(Routes.PROMPT_BUILDER)
                 },
@@ -240,6 +242,8 @@ fun AppNavHost(
             ImageEditorScreen(
                 imageEditorViewModel = imageEditorViewModel,
                 apiKeyViewModel = apiKeyViewModel,
+                historyViewModel = historyViewModel,
+                onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onBack = { navController.popBackStack() },
                 isDark = themeState.isDarkMode,
                 onToggleDark = { appThemeViewModel.toggleDarkMode() }

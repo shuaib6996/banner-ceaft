@@ -85,6 +85,7 @@ class ImageEditorViewModel : ViewModel() {
     val state: StateFlow<ImageEditorState> = _state.asStateFlow()
 
     private val geminiService = GeminiImageService()
+    private val openAiService = com.example.data.OpenAiCompatibleService()
 
     fun updateMode(mode: ImageEditorMode) {
         _state.update { it.copy(mode = mode, errorMessage = null, successMessage = null) }
@@ -112,17 +113,35 @@ class ImageEditorViewModel : ViewModel() {
         }
     }
 
-    fun processImage(apiKey: String?, model: String = com.example.data.AiModelConfig.DEFAULT_MODEL) {
+    fun processImage(
+        apiKey: String?,
+        model: String = com.example.data.AiModelConfig.DEFAULT_MODEL,
+        providerConfig: com.example.data.ApiProviderConfig? = null,
+        onSaveToHistory: ((title: String, prompt: String, bytes: ByteArray) -> Unit)? = null
+    ) {
         if (_state.value.isProcessing) return
 
-        if (apiKey.isNullOrBlank()) {
+        val effectiveConfig = providerConfig ?: com.example.data.ApiProviderConfig(
+            apiKey = apiKey.orEmpty(),
+            imageModel = model,
+            isOpenAiCompatible = false
+        )
+
+        val effectiveKey = effectiveConfig.apiKey.ifBlank { apiKey.orEmpty() }
+
+        if (effectiveKey.isBlank() && effectiveConfig.providerId != "ollama") {
             _state.update {
                 it.copy(
-                    errorMessage = "Gemini API key is required. Please add it in Settings."
+                    errorMessage = "API key is required for ${effectiveConfig.providerName}. Please add it in Settings."
                 )
             }
             return
         }
+
+        val targetModel = effectiveConfig.imageModel.ifBlank { model }
+        val isNvidiaKey = effectiveKey.startsWith("nvapi-", ignoreCase = true)
+        val isGoogleKey = effectiveKey.startsWith("AIzaSy")
+        val isOpenAi = isNvidiaKey || (effectiveConfig.isOpenAiCompatible && !isGoogleKey)
 
         // Set isProcessing immediately on caller thread to prevent double-click race conditions
         val current = _state.value
@@ -131,7 +150,7 @@ class ImageEditorViewModel : ViewModel() {
                 isProcessing = true,
                 errorMessage = null,
                 successMessage = null,
-                stageMessage = if (current.mode == ImageEditorMode.CREATE) "Creating image with $model..." else "Editing image with prompt..."
+                stageMessage = if (current.mode == ImageEditorMode.CREATE) "Creating image with $targetModel..." else "Editing image with prompt..."
             )
         }
 
@@ -141,12 +160,22 @@ class ImageEditorViewModel : ViewModel() {
                     if (current.prompt.isBlank()) {
                         throw IllegalArgumentException("Please enter a prompt to create an image.")
                     }
-                    geminiService.generateImage(
-                        apiKey = apiKey,
-                        prompt = current.prompt,
-                        aspectRatio = current.selectedAspectRatio,
-                        model = model
-                    )
+                    if (isOpenAi) {
+                        val targetUrl = effectiveConfig.baseUrl.ifBlank { "https://integrate.api.nvidia.com/v1" }
+                        openAiService.generateImage(
+                            baseUrl = targetUrl,
+                            apiKey = effectiveKey,
+                            model = targetModel,
+                            prompt = current.prompt
+                        )
+                    } else {
+                        geminiService.generateImage(
+                            apiKey = effectiveKey,
+                            prompt = current.prompt,
+                            aspectRatio = current.selectedAspectRatio,
+                            model = targetModel
+                        )
+                    }
                 } else {
                     val source = current.sourceImageBytes ?: current.resultImageBytes
                     if (source == null || source.isEmpty()) {
@@ -155,12 +184,15 @@ class ImageEditorViewModel : ViewModel() {
                     if (current.editInstruction.isBlank()) {
                         throw IllegalArgumentException("Please enter text instructions on how to edit the image.")
                     }
+                    if (isOpenAi) {
+                        throw IllegalArgumentException("Modifying existing photos requires Google Gemini Vision. Please switch to Google Gemini in the side panel to edit this photo, or use 'Create Image' mode for FLUX / NVIDIA.")
+                    }
                     geminiService.editImage(
-                        apiKey = apiKey,
+                        apiKey = effectiveKey,
                         sourceImageBytes = source,
                         editPrompt = current.editInstruction,
                         aspectRatio = current.selectedAspectRatio,
-                        model = model
+                        model = targetModel
                     )
                 }
 
@@ -172,6 +204,13 @@ class ImageEditorViewModel : ViewModel() {
                         successMessage = if (current.mode == ImageEditorMode.CREATE) "Image created successfully!" else "Image edited successfully!"
                     )
                 }
+
+                // Automatically cache into history so it immediately appears in side panel
+                onSaveToHistory?.invoke(
+                    "Studio: " + current.prompt.ifBlank { current.editInstruction }.take(25),
+                    current.prompt.ifBlank { current.editInstruction },
+                    outputBytes
+                )
             } catch (e: InvalidApiKeyException) {
                 _state.update {
                     it.copy(
@@ -209,7 +248,7 @@ class ImageEditorViewModel : ViewModel() {
                     it.copy(
                         isProcessing = false,
                         stageMessage = null,
-                        errorMessage = "Network error. Please check your internet connection."
+                        errorMessage = e.message ?: "Network error. Please check your internet connection."
                     )
                 }
             } catch (e: Exception) {
