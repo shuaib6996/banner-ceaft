@@ -36,10 +36,11 @@ Defined in [`TargetDimensions.kt`](file:///c:/Users/shuai/Downloads/bannerflow-n
 | Layer | Technology / Library |
 | :--- | :--- |
 | **Language** | Kotlin 2.2.10 |
-| **UI Framework** | Jetpack Compose + Material 3 |
-| **Architecture** | MVVM (Model - View - ViewModel) + StateFlow |
+| **UI Framework** | Jetpack Compose + Material 3 (BOM 2024.09.00) |
+| **Architecture** | MVVM (Model - View - ViewModel) + StateFlow UDF |
 | **Navigation** | AndroidX Navigation Compose (`2.8.9`) |
-| **AI Integration** | OkHttp 4.10 direct REST calls to Gemini Image API (`gemini-3.1-flash-image`, `gemini-3.1-flash-image-preview`) |
+| **AI Integration** | OkHttp 4.10 direct REST to Google Gemini 3.8/3.7, Imagen 3, and NVIDIA NIM (FLUX.1 Dev, LLaMA 3.2 Vision) |
+| **Authentication** | Firebase Authentication (Google Sign-In, Email/Password, Guest Mode) + Cloud Firestore |
 | **Local Database** | Room (`2.7.0`) with KSP (`2.3.5`) |
 | **Security** | `androidx.security:security-crypto:1.0.0` (`EncryptedSharedPreferences` with AES256-GCM / AES256-SIV) |
 | **Image Loading** | Coil Compose (`2.7.0`) |
@@ -57,10 +58,14 @@ bannerflow-navigator/
 ├── gradle/
 │   ├── libs.versions.toml                     # Version catalog
 │   └── wrapper/
-├── metadata.json                              # AI Studio app metadata
 ├── README.md                                  # Setup & run documentation
+├── ARCHITECTURE.md                            # Comprehensive architectural specs
+├── CONTRIBUTING.md                            # Development guidelines
+├── GEMINI.md                                  # Agent & developer guidelines
+├── MEMORY.md                                  # Project memory (this document)
 └── app/
     ├── build.gradle.kts                       # App module Gradle configuration
+    ├── google-services.json                   # Firebase client configuration
     ├── proguard-rules.pro                     # ProGuard / R8 rules
     └── src/
         ├── main/
@@ -68,39 +73,47 @@ bannerflow-navigator/
         │   ├── java/com/example/
         │   │   ├── MainActivity.kt            # Single Activity host with edge-to-edge
         │   │   ├── data/                      # Data models, DB, and service layer
+        │   │   │   ├── AiModelConfig.kt       # Model endpoints & defaults
+        │   │   │   ├── ApiProviderConfig.kt   # Multi-provider presets & model configs
         │   │   │   ├── BannerDatabase.kt      # Room DB instance
         │   │   │   ├── BannerHistoryDao.kt    # DAO for banner history
         │   │   │   ├── BannerHistoryItem.kt   # Room Entity for saved banners
         │   │   │   ├── BannerHistoryRepository.kt
         │   │   │   ├── DefaultAvatarHelper.kt # Sample avatars / placeholders
-        │   │   │   ├── GeminiImageService.kt  # Gemini Image REST Client (generate & edit)
+        │   │   │   ├── GeminiChatService.kt   # Gemini 3.8 Flash multi-turn chat client
+        │   │   │   ├── GeminiImageService.kt  # Gemini / Imagen 3 image REST Client
         │   │   │   ├── ImageProcessingService.kt # Safe area scaling & bitmap composition
         │   │   │   ├── LogoOverlayService.kt  # Avatar/logo overlay placement
+        │   │   │   ├── OpenAiCompatibleService.kt # NVIDIA NIM (FLUX.1 Dev & LLaMA) client
         │   │   │   ├── SaveService.kt         # MediaStore bitmap export
-        │   │   │   ├── SecureStorageManager.kt# EncryptedSharedPreferences for API key
+        │   │   │   ├── SecureStorageManager.kt# EncryptedSharedPreferences for API keys
         │   │   │   ├── TargetDimensions.kt    # Canvas dimensions & Safe area bounds
         │   │   │   └── TextOverlayService.kt  # Typography drawing onto banners
         │   │   ├── navigation/
         │   │   │   └── NavGraph.kt            # Compose Navigation routes & transitions
         │   │   ├── state/                     # ViewModels & UI States
-        │   │   │   ├── ApiKeyViewModel.kt     # Key validation & secure persistence
+        │   │   │   ├── ApiKeyViewModel.kt     # Multi-provider profile & decoupled key state
         │   │   │   ├── AppThemeViewModel.kt   # Dark/Light mode state management
+        │   │   │   ├── AuthViewModel.kt       # Firebase authentication state
         │   │   │   ├── BannerCreationViewModel.kt # Generation wizard pipeline
         │   │   │   ├── HistoryViewModel.kt    # Saved banner collection
-        │   │   │   └── ImageEditorViewModel.kt# AI Studio image editing state
+        │   │   │   ├── ImageEditorViewModel.kt# AI Studio image editing state
+        │   │   │   └── PromptChatViewModel.kt # AI Prompt Chat brainstorming state
         │   │   └── ui/
         │   │       ├── components/
         │   │       │   └── UiComponents.kt    # Neumorphic buttons, cards, headers
         │   │       ├── screens/
-        │   │       │   ├── ApiKeySetupScreen.kt
-        │   │       │   ├── GenerationSettingsScreen.kt
-        │   │       │   ├── HistoryScreen.kt
-        │   │       │   ├── HomeScreen.kt
-        │   │       │   ├── ImageEditorScreen.kt
-        │   │       │   ├── PromptBuilderScreen.kt
-        │   │       │   ├── ResultScreen.kt
-        │   │       │   ├── SettingsScreen.kt
-        │   │       │   └── SplashScreen.kt
+        │   │       │   ├── ApiKeySetupScreen.kt # Decoupled Chat & Image key configuration
+        │   │       │   ├── GenerationSettingsScreen.kt # Aspect ratio, model picker, overlays
+        │   │       │   ├── HistoryScreen.kt   # Saved banners gallery & viewer
+        │   │       │   ├── HomeScreen.kt      # Dashboard & navigation hub
+        │   │       │   ├── ImageEditorScreen.kt # Image Studio prompt-based editor
+        │   │       │   ├── LoginScreen.kt     # Firebase Auth login/signup screen
+        │   │       │   ├── PromptBuilderScreen.kt # Mood, topic, and style wizard
+        │   │       │   ├── PromptChatScreen.kt# AI prompt brainstorm chat with model switcher
+        │   │       │   ├── ResultScreen.kt    # High-res banner view & export
+        │   │       │   ├── SettingsScreen.kt  # App settings & profile manager
+        │   │       │   └── SplashScreen.kt    # Splash launcher & auth routing
         │   │       └── theme/
         │   │           ├── Color.kt
         │   │           ├── Neumorphic.kt      # Neumorphic convex/inset modifiers

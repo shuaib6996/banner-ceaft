@@ -49,14 +49,22 @@ BannerCraft strictly implements the official Android Architecture Guidelines wit
 
 ### B. State Management Layer (`com.example.state`)
 - **`BannerCreationViewModel`**: Manages the end-to-end creation state, from topic prompt formulation, mood & color selection, to overlay configurations and the final execution pipeline.
-- **`ApiKeyViewModel`**: Handles user-provided Gemini API key validation, sanitization, and persistent encrypted storage.
+- **`ApiKeyViewModel`**: Handles multi-provider profiles (Google Gemini, NVIDIA NIM, OpenAI Compatible, OpenRouter, Groq, DeepSeek), decoupled Chat & Image provider setups, sanitization, and persistent encrypted storage.
+- **`PromptChatViewModel`**: Powers the AI Prompt Chat screen with live message history, suggested prompt pills, dynamic model discovery, and 1-tap model switching.
+- **`AuthViewModel`**: Manages user authentication states (Google Sign-In, Email/Password login/registration, and guest mode) integrated with Firebase Authentication.
 - **`AppThemeViewModel`**: Manages dark mode toggle state, surviving session navigation.
 - **`HistoryViewModel`**: Exposes reactive `StateFlow<List<BannerHistoryItem>>` loaded from Room.
 - **`ImageEditorViewModel`**: Houses state for custom image prompt transformations and adjustments.
 
 ### C. Data & Processing Layer (`com.example.data`)
+- **`GeminiChatService`**:
+  - Connects to Google's official 2026 chat models (`gemini-3.8-flash`, `gemini-flash-latest`, `gemini-3.7-flash`).
+  - Supports dynamic model discovery via `v1beta/models` and multi-turn conversational formatting with alternating roles.
+- **`OpenAiCompatibleService`**:
+  - Integrates with NVIDIA NIM (`https://integrate.api.nvidia.com/v1`) for Chat (`meta/llama-3.2-11b-vision-instruct`).
+  - Supports image generation with **FLUX.1 Dev** (`https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev`) and OpenRouter/custom endpoints.
 - **`GeminiImageService`**:
-  - Connects to `gemini-3.1-flash-image` and `gemini-3.1-flash-image-preview` via `OkHttpClient`.
+  - Connects to `imagen-3.0-generate-002` and `gemini-3.1-flash-image` via `OkHttpClient`.
   - Sets `generationConfig.responseModalities = ["IMAGE"]`.
   - Parses response JSON candidates to extract base64-encoded PNG image data.
   - Features robust error handling for `InvalidApiKeyException` (401/403), `RateLimitException` (429), and network errors.
@@ -68,6 +76,8 @@ BannerCraft strictly implements the official Android Architecture Guidelines wit
   - Exports final composite bitmaps into Android's public `MediaStore.Images` collection under `Pictures/BannerCraft`.
 - **`BannerDatabase` & `BannerHistoryRepository`**:
   - Local SQLite database backed by Room for offline review and preservation of generated artifacts.
+- **`SecureStorageManager`**:
+  - Handles encrypted storage of provider configurations, saved profiles, and API credentials via Android's `EncryptedSharedPreferences`.
 
 ---
 
