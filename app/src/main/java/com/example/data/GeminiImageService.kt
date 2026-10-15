@@ -23,9 +23,9 @@ class GeminiApiException(val statusCode: Int, message: String, val rawBody: Stri
 class GeminiImageService {
 
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(45, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
+        .writeTimeout(45, TimeUnit.SECONDS)
         .build()
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -329,13 +329,6 @@ class GeminiImageService {
             "$endpointUrl?key=$apiKey"
         }
 
-        val requestBody = jsonBody.toRequestBody(jsonMediaType)
-        val request = Request.Builder()
-            .url(urlWithKey)
-            .addHeader("x-goog-api-key", apiKey)
-            .post(requestBody)
-            .build()
-
         var attempt = 0
         var lastCode = 0
         var lastBody = ""
@@ -343,6 +336,16 @@ class GeminiImageService {
         while (attempt < maxRetries) {
             attempt++
             try {
+                // Build a FRESH request on every attempt — OkHttp consumes RequestBody
+                // on first execute(), so reusing the same Request object causes retries
+                // to send an empty body, leading to silent 400 errors on retry.
+                val freshBody = jsonBody.toRequestBody(jsonMediaType)
+                val request = Request.Builder()
+                    .url(urlWithKey)
+                    .addHeader("x-goog-api-key", apiKey)
+                    .post(freshBody)
+                    .build()
+
                 val response = client.newCall(request).execute()
                 response.use { resp ->
                     lastCode = resp.code
@@ -356,7 +359,7 @@ class GeminiImageService {
                     // Log exact status code and raw error response body
                     Log.e(
                         TAG,
-                        "API Call Failed! Model: '$modelName', Status: $lastCode, Attempt: $attempt/$maxRetries, URL: $endpointUrl\nRaw Response: $lastBody"
+                        "API Call Failed! Model: '$modelName', Status: $lastCode, Attempt: $attempt/$maxRetries, URL: $endpointUrl\nRaw Response: ${lastBody.take(500)}"
                     )
 
                     // If Rate Limited (429) or Server Unavailable (503), apply exponential backoff
@@ -372,6 +375,18 @@ class GeminiImageService {
                         // For 400, 401, 403, 404, or after retries exhausted, return immediately
                         return@withContext Pair(lastCode, lastBody)
                     }
+                }
+            } catch (e: java.net.SocketTimeoutException) {
+                Log.e(TAG, "Socket timeout on attempt $attempt/$maxRetries for '$modelName'", e)
+                if (attempt < maxRetries) {
+                    val backoffMs = 2000L * attempt
+                    Log.w(TAG, "Timeout on attempt $attempt. Retrying in ${backoffMs}ms...")
+                    delay(backoffMs)
+                } else {
+                    throw IOException(
+                        "The AI model '$modelName' took too long to generate an image for this prompt. " +
+                        "Try simplifying or shortening your prompt, or switch to a faster model like 'imagen-3.0-generate-002'."
+                    )
                 }
             } catch (e: IOException) {
                 Log.e(TAG, "Network I/O exception on attempt $attempt/$maxRetries for '$modelName'", e)

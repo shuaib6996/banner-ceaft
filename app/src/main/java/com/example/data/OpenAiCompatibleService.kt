@@ -21,9 +21,9 @@ sealed class ConnectionTestResult {
 class OpenAiCompatibleService {
 
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(25, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(45, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
+        .writeTimeout(45, TimeUnit.SECONDS)
         .build()
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -406,6 +406,11 @@ class OpenAiCompatibleService {
                     lastErrorMsg = "NVIDIA NIM Image Generation (HTTP ${response.code}): $parsedMsg"
                     Log.w(TAG, "NVIDIA endpoint $endpoint failed with HTTP ${response.code}: $bodyString")
                 }
+            } catch (e: java.net.SocketTimeoutException) {
+                lastErrorMsg = "NVIDIA NIM image generation timed out for this prompt. Try a shorter or simpler description."
+                Log.w(TAG, "NVIDIA endpoint $endpoint timed out", e)
+            } catch (e: ContentModeratedException) {
+                throw e  // Don't swallow content moderation, bubble up immediately
             } catch (e: Exception) {
                 lastErrorMsg = "Network error calling NVIDIA NIM: ${e.message}"
                 Log.w(TAG, "NVIDIA endpoint $endpoint threw exception", e)

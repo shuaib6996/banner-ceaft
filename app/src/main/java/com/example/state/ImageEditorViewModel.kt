@@ -170,11 +170,20 @@ class ImageEditorViewModel : ViewModel() {
                             prompt = current.prompt
                         )
                     } else {
+                        // Smart routing: Imagen :predict has shorter prompt limits (~480 tokens).
+                        // For long/detailed prompts, prefer gemini-3.1-flash-image which
+                        // handles verbose descriptions much better via :generateContent.
+                        val effectiveModel = if (current.prompt.length > 600 && targetModel.startsWith("imagen", ignoreCase = true)) {
+                            android.util.Log.i("ImageEditor", "Long prompt (${current.prompt.length} chars) detected. Routing from '$targetModel' to 'gemini-3.1-flash-image'.")
+                            "gemini-3.1-flash-image"
+                        } else {
+                            targetModel
+                        }
                         geminiService.generateImage(
                             apiKey = effectiveKey,
                             prompt = current.prompt,
                             aspectRatio = current.selectedAspectRatio,
-                            model = targetModel
+                            model = effectiveModel
                         )
                     }
                 } else {

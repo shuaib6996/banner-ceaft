@@ -469,7 +469,12 @@ class BannerCreationViewModel : ViewModel() {
         }
 
         viewModelScope.launch {
-            val prompt = buildFinalPrompt()
+            val rawPrompt = buildFinalPrompt()
+
+            // Smart prompt optimization: Imagen 3 :predict endpoint has internal prompt
+            // length limits (~480 tokens). When prompt exceeds ~1000 chars, compress it
+            // to core visual elements only, dropping verbose layout instructions.
+            val prompt = optimizePromptForImageGeneration(rawPrompt)
 
             try {
                 // Stage 1: Raw AI Image Generation (OpenAI-compatible or Gemini)
@@ -486,9 +491,18 @@ class BannerCreationViewModel : ViewModel() {
                         prompt = prompt
                     )
                 } else {
-                    val geminiModel = if (providerConfig?.providerId == "gemini" && providerConfig.imageModel.isNotBlank()) {
+                    var geminiModel = if (providerConfig?.providerId == "gemini" && providerConfig.imageModel.isNotBlank()) {
                         providerConfig.imageModel
                     } else model
+
+                    // Smart routing: if prompt is very detailed (> 600 chars) and user is on
+                    // Imagen 3 (:predict), prefer gemini-3.1-flash-image (:generateContent)
+                    // which handles longer prompts much better without truncation or 400 errors.
+                    if (prompt.length > 600 && geminiModel.startsWith("imagen", ignoreCase = true)) {
+                        android.util.Log.i("BannerCreation", "Prompt length ${prompt.length} > 600 chars. Routing from '$geminiModel' to 'gemini-3.1-flash-image' for better long-prompt support.")
+                        geminiModel = "gemini-3.1-flash-image"
+                    }
+
                     geminiImageService.generateImage(
                         apiKey = effectiveKey,
                         prompt = prompt,
@@ -693,6 +707,53 @@ class BannerCreationViewModel : ViewModel() {
     fun updateLogoPosition(position: String?) {
         _state.update { it.copy(logoPosition = position) }
         buildFinalPrompt()
+    }
+
+    /**
+     * Intelligently compresses long prompts for image generation APIs.
+     *
+     * Problem: When users write detailed prompts AND the system appends style/layout/quality
+     * keywords, the combined prompt can exceed 800-1200+ chars. Imagen 3 :predict has an
+     * internal ~480 token prompt limit and returns 400 errors. Even Gemini Image models
+     * slow down significantly with very long prompts, causing timeouts.
+     *
+     * Solution: Strip verbose boilerplate instructions (layout, positioning, borders)
+     * while preserving the creative/visual core of the user's prompt.
+     */
+    private fun optimizePromptForImageGeneration(rawPrompt: String): String {
+        // Short prompts pass through untouched
+        if (rawPrompt.length <= 800) return rawPrompt
+
+        var optimized = rawPrompt
+
+        // Remove verbose layout instructions that image models ignore anyway
+        val boilerplatePatterns = listOf(
+            "Please leave the [\\w-]+ area simple and uncluttered\\.?",
+            "Keep the [\\w\\s-]+ area simple[^.]*\\.?",
+            "Keep the [\\w\\s-]+ simple for an avatar logo\\.?",
+            "Designed for 16:9 widescreen canvas \\(2560x1440 YouTube banner\\)\\.?",
+            ", no watermark, no borders",
+            "professional YouTube banner background design",
+            "High quality, professional YouTube banner background design, no watermark, no borders\\.?"
+        )
+
+        for (pattern in boilerplatePatterns) {
+            optimized = optimized.replace(Regex(pattern, RegexOption.IGNORE_CASE), "")
+        }
+
+        // Collapse multiple spaces and dots
+        optimized = optimized.replace(Regex("\\s{2,}"), " ")
+            .replace(Regex("\\.{2,}"), ".")
+            .replace(Regex("\\. \\."), ".")
+            .trim()
+
+        // Append compact quality suffix instead of the verbose one
+        if (!optimized.endsWith(".")) optimized += "."
+        optimized += " High-quality YouTube banner, 16:9, no watermark."
+
+        android.util.Log.i("BannerCreation", "Prompt optimized: ${rawPrompt.length} → ${optimized.length} chars")
+
+        return optimized
     }
 
     fun resetToDefaults() {
