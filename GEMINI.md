@@ -78,5 +78,10 @@ This document provides behavioral constraints, styling rules, and coding convent
 5. **History & Prompt Architecture**:
    - [`HistoryScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/HistoryScreen.kt) is structured into dual tabs: `[ 🎨 Images ]` and `[ 💬 Prompts ]`.
    - Both sections support multi-selection with "Select All / Deselect All", selection counter badge, and batch "Delete Selected" via [`BannerHistoryDao.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/data/BannerHistoryDao.kt).
-   - In [`PromptBuilderScreen.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/ui/screens/PromptBuilderScreen.kt), user can directly input custom AI banner prompts without requiring a channel topic.
    - Image models priority auto-selects NVIDIA NIM (`black-forest-labs/flux.1-dev`) first across all screens, followed by Google Imagen 3 (`imagen-3.0-generate-002`).
+
+6. **Hugging Face Inference Providers Architecture**:
+   - Integrated via [`HuggingFaceImageService.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/data/HuggingFaceImageService.kt) for serverless text-to-image synthesis (`black-forest-labs/FLUX.1-schnell`, `black-forest-labs/FLUX.1-dev`, `stabilityai/stable-diffusion-3.5-large`, `SDXL 1.0`).
+   - Supports serverless multi-provider routing (`router.huggingface.co`) with automatic provider resolution (`expand[]=inferenceProviderMapping`) and explicit partner routing (`fal-ai`, `together`, `replicate`, `wavespeed`).
+   - Conforms strictly to official Hugging Face error status code handling (401, 403, 404, 402/429, and 503 retry loop with 20s delay).
+   - Reuses existing provider fields: `providerName`, `apiKey`, `baseUrl`, `imageModel`.

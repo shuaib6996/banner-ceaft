@@ -73,11 +73,14 @@ fun StudioSideDrawer(
     modifier: Modifier = Modifier
 ) {
     val isGoogle = currentConfig.providerId == "gemini"
+    val isHuggingFace = currentConfig.providerId == "huggingface" || currentConfig.apiKey.startsWith("hf_", ignoreCase = true)
     val isNvidia = currentConfig.providerId == "openai_compatible" || currentConfig.baseUrl.contains("nvidia", ignoreCase = true)
     val hasKey = currentConfig.apiKey.isNotBlank() || currentConfig.providerId == "ollama"
 
     // Only Image Models in Studio
-    val relevantImageModels = if (isGoogle) {
+    val relevantImageModels = if (isHuggingFace) {
+        ApiProviderPresets.HUGGINGFACE_IMAGE_MODELS
+    } else if (isGoogle) {
         ApiProviderPresets.GEMINI_IMAGE_MODELS
     } else {
         ApiProviderPresets.NVIDIA_IMAGE_MODELS

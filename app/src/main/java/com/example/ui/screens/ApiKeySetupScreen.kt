@@ -693,9 +693,42 @@ fun ApiKeySetupScreen(
                 // Real-time Key Validation Feedback Badge
                 val isNvidia = selectedPresetId == "openai_compatible" || baseUrl.contains("nvidia", ignoreCase = true)
                 val isGemini = selectedPresetId == "gemini"
+                val isHuggingFace = selectedPresetId == "huggingface" || baseUrl.contains("huggingface", ignoreCase = true)
                 if (inputKey.isNotBlank()) {
                     Spacer(modifier = Modifier.height(6.dp))
-                    if (isGemini) {
+                    if (isHuggingFace) {
+                        if (inputKey.startsWith("hf_")) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(SafeMint.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                    .border(1.dp, SafeMint.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "✓ Valid Hugging Face Access Token format (hf_...)",
+                                    color = SafeMint,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(CoralRed.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                    .border(1.dp, CoralRed.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "⚠️ Hugging Face tokens typically start with 'hf_'. Make sure your token has Inference Providers permission.",
+                                    color = CoralRed,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    } else if (isGemini) {
                         if (inputKey.startsWith("AIzaSy")) {
                             Box(
                                 modifier = Modifier

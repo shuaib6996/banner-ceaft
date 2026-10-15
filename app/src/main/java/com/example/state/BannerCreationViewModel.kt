@@ -141,6 +141,7 @@ class BannerCreationViewModel : ViewModel() {
 
     private val geminiImageService = GeminiImageService()
     private val openAiService = OpenAiCompatibleService()
+    private val huggingFaceService = com.example.data.HuggingFaceImageService()
     private val imageProcessingService = ImageProcessingService()
     private val textOverlayService = TextOverlayService()
     private val logoOverlayService = LogoOverlayService()
@@ -477,11 +478,24 @@ class BannerCreationViewModel : ViewModel() {
             val prompt = optimizePromptForImageGeneration(rawPrompt)
 
             try {
-                // Stage 1: Raw AI Image Generation (OpenAI-compatible or Gemini)
+                // Stage 1: Raw AI Image Generation (Hugging Face, OpenAI-compatible, or Gemini)
+                val isHuggingFaceKey = effectiveKey.startsWith("hf_", ignoreCase = true)
                 val isNvidiaKey = effectiveKey.startsWith("nvapi-", ignoreCase = true)
                 val isGoogleKey = effectiveKey.startsWith("AIzaSy")
 
-                val imageBytes = if (isNvidiaKey || (providerConfig != null && providerConfig.isOpenAiCompatible && !isGoogleKey)) {
+                val imageBytes = if (isHuggingFaceKey || providerConfig?.providerId == "huggingface") {
+                    val targetModel = providerConfig?.imageModel?.ifBlank { "black-forest-labs/FLUX.1-schnell" } ?: "black-forest-labs/FLUX.1-schnell"
+                    val targetProvider = providerConfig?.baseUrl?.ifBlank { "auto" } ?: "auto"
+                    huggingFaceService.generateImage(
+                        apiKey = effectiveKey,
+                        model = targetModel,
+                        prompt = prompt,
+                        provider = targetProvider,
+                        onProgress = { msg ->
+                            _state.update { it.copy(generationStageMessage = msg) }
+                        }
+                    )
+                } else if (isNvidiaKey || (providerConfig != null && providerConfig.isOpenAiCompatible && !isGoogleKey)) {
                     val targetUrl = providerConfig?.baseUrl?.ifBlank { "https://integrate.api.nvidia.com/v1" } ?: "https://integrate.api.nvidia.com/v1"
                     val targetModel = providerConfig?.imageModel?.ifBlank { "qwen-image" } ?: "qwen-image"
                     openAiService.generateImage(

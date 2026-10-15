@@ -87,6 +87,7 @@ class ImageEditorViewModel : ViewModel() {
 
     private val geminiService = GeminiImageService()
     private val openAiService = com.example.data.OpenAiCompatibleService()
+    private val huggingFaceService = com.example.data.HuggingFaceImageService()
 
     fun updateMode(mode: ImageEditorMode) {
         _state.update { it.copy(mode = mode, errorMessage = null, successMessage = null) }
@@ -140,6 +141,7 @@ class ImageEditorViewModel : ViewModel() {
         }
 
         val targetModel = effectiveConfig.imageModel.ifBlank { model }
+        val isHuggingFace = effectiveKey.startsWith("hf_", ignoreCase = true) || effectiveConfig.providerId == "huggingface"
         val isNvidiaKey = effectiveKey.startsWith("nvapi-", ignoreCase = true)
         val isGoogleKey = effectiveKey.startsWith("AIzaSy")
         val isOpenAi = isNvidiaKey || (effectiveConfig.isOpenAiCompatible && !isGoogleKey)
@@ -161,7 +163,18 @@ class ImageEditorViewModel : ViewModel() {
                     if (current.prompt.isBlank()) {
                         throw IllegalArgumentException("Please enter a prompt to create an image.")
                     }
-                    if (isOpenAi) {
+                    if (isHuggingFace) {
+                        val targetProvider = effectiveConfig.baseUrl.ifBlank { "auto" }
+                        huggingFaceService.generateImage(
+                            apiKey = effectiveKey,
+                            model = targetModel.ifBlank { "black-forest-labs/FLUX.1-schnell" },
+                            prompt = current.prompt,
+                            provider = targetProvider,
+                            onProgress = { msg ->
+                                _state.update { it.copy(stageMessage = msg) }
+                            }
+                        )
+                    } else if (isOpenAi) {
                         val targetUrl = effectiveConfig.baseUrl.ifBlank { "https://integrate.api.nvidia.com/v1" }
                         openAiService.generateImage(
                             baseUrl = targetUrl,

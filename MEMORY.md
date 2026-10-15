@@ -82,6 +82,7 @@ bannerflow-navigator/
         │   │   │   ├── DefaultAvatarHelper.kt # Sample avatars / placeholders
         │   │   │   ├── GeminiChatService.kt   # Gemini 3.8 Flash multi-turn chat client
         │   │   │   ├── GeminiImageService.kt  # Gemini / Imagen 3 image REST Client
+        │   │   │   ├── HuggingFaceImageService.kt # Hugging Face Inference Providers REST client
         │   │   │   ├── ImageProcessingService.kt # Safe area scaling & bitmap composition
         │   │   │   ├── ImageSafetyValidator.kt# Content moderation & black image detection
         │   │   │   ├── LogoOverlayService.kt  # Avatar/logo overlay placement

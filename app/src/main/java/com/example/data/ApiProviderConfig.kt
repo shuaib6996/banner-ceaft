@@ -197,9 +197,30 @@ object ApiProviderPresets {
         keyHint = "Optional (can be blank)"
     )
 
+    val HUGGINGFACE_IMAGE_MODELS = listOf(
+        ModelOption("black-forest-labs/FLUX.1-schnell", "FLUX.1 Schnell", "Fast distilled high-speed generation (Recommended)"),
+        ModelOption("black-forest-labs/FLUX.1-dev", "FLUX.1 Dev", "High-definition flagship visual synthesis"),
+        ModelOption("stabilityai/stable-diffusion-3.5-large", "SD 3.5 Large", "Stability AI next-generation flagship"),
+        ModelOption("stabilityai/stable-diffusion-xl-base-1.0", "SDXL 1.0", "Standard high-resolution diffusion")
+    )
+
+    val PRESET_HUGGINGFACE = ProviderPreset(
+        id = "huggingface",
+        name = "Hugging Face",
+        baseUrl = "auto",
+        defaultChatModel = "",
+        defaultImageModel = "black-forest-labs/FLUX.1-schnell",
+        popularChatModels = emptyList(),
+        popularImageModels = HUGGINGFACE_IMAGE_MODELS.map { it.id },
+        description = "Hugging Face Inference Providers. Access FLUX, SDXL & open models via serverless routing.",
+        keyHint = "hf_...",
+        isOpenAiCompatible = false
+    )
+
     val ALL_PRESETS = listOf(
         PRESET_GEMINI,
         PRESET_OPENAI_COMPATIBLE,
+        PRESET_HUGGINGFACE,
         PRESET_OPENROUTER,
         PRESET_OPENAI,
         PRESET_GROQ,
@@ -210,6 +231,7 @@ object ApiProviderPresets {
 
     fun getPresetById(id: String): ProviderPreset {
         if (id.equals("custom", ignoreCase = true) || id.equals("openai_compatible", ignoreCase = true)) return PRESET_OPENAI_COMPATIBLE
+        if (id.equals("huggingface", ignoreCase = true)) return PRESET_HUGGINGFACE
         return ALL_PRESETS.firstOrNull { it.id.equals(id, ignoreCase = true) } ?: PRESET_GEMINI
     }
 }

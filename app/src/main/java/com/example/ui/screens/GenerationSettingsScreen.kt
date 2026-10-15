@@ -910,6 +910,56 @@ fun ImageModelSwitcherDialog(
                                 }
                             }
                         }
+                    } else if (currentConfig.providerId == "huggingface") {
+                        // Hugging Face Image Models List
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(ApiProviderPresets.HUGGINGFACE_IMAGE_MODELS) { modelOpt ->
+                                val isSelected = currentConfig.imageModel.equals(modelOpt.id, ignoreCase = true)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .neumorphicConvex(shape = RoundedCornerShape(12.dp), elevation = if (isSelected) 1.dp else 2.dp)
+                                        .clickable { onSelectModel(modelOpt.id) }
+                                        .padding(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = modelOpt.displayName,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) CoralRed else MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = modelOpt.description,
+                                                fontSize = 10.sp,
+                                                color = SlateNeutral,
+                                                lineHeight = 14.sp
+                                            )
+                                        }
+
+                                        if (isSelected) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Selected",
+                                                tint = SafeMint,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         // OpenAI-compatible / Custom Image Model Input
                         Column(modifier = Modifier.fillMaxWidth()) {

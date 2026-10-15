@@ -70,6 +70,7 @@ class ApiKeyViewModel(application: Application) : AndroidViewModel(application) 
     private val storageManager = SecureStorageManager(application)
     private val openAiService = OpenAiCompatibleService()
     private val geminiChatService = GeminiChatService()
+    private val huggingFaceService = com.example.data.HuggingFaceImageService()
 
     private val _state = MutableStateFlow(ApiKeyState())
     val state: StateFlow<ApiKeyState> = _state.asStateFlow()
@@ -548,9 +549,18 @@ class ApiKeyViewModel(application: Application) : AndroidViewModel(application) 
     ) {
         viewModelScope.launch {
             _state.update { it.copy(isTestingConnection = true, testConnectionResult = null) }
+            val isHuggingFace = _state.value.currentEditingConfig.providerId == "huggingface" ||
+                apiKey.startsWith("hf_", ignoreCase = true) ||
+                baseUrl.contains("huggingface", ignoreCase = true)
             val isGemini = baseUrl.contains("generativelanguage.googleapis.com", ignoreCase = true) ||
                 _state.value.currentEditingConfig.providerId == "gemini"
-            val result = if (isGemini) {
+            val result = if (isHuggingFace) {
+                huggingFaceService.testConnection(
+                    apiKey = apiKey,
+                    model = model,
+                    provider = if (baseUrl.isNotBlank() && !baseUrl.startsWith("http")) baseUrl else "auto"
+                )
+            } else if (isGemini) {
                 geminiChatService.testConnection(
                     apiKey = apiKey,
                     model = model
