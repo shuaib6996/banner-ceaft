@@ -33,6 +33,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -41,8 +44,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.navigationBarsPadding
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -78,6 +84,8 @@ fun GenerationSettingsScreen(
 ) {
     val state by bannerViewModel.state.collectAsState()
     val apiKeyState by apiKeyViewModel.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var photoPickerError by remember { mutableStateOf<String?>(null) }
     var showImageModelSwitcherDialog by remember { mutableStateOf(false) }
@@ -130,14 +138,59 @@ fun GenerationSettingsScreen(
 
     val isGenerateEnabled = isAspectRatioValid && isStyleValid && isTextValid && isLogoValid
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        ScreenHeader(
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = {
+            // Fixed / Sticky Bottom Footer with Generate Button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .navigationBarsPadding()
+                    .neumorphicConvex(shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp), elevation = 8.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                PrimaryButton(
+                    text = "✨ Generate My Banner Now",
+                    enabled = true,
+                    onClick = {
+                        if (!isGenerateEnabled) {
+                            val missing = buildList {
+                                if (!isAspectRatioValid) add("Aspect Ratio")
+                                if (!isStyleValid) add("Banner Style")
+                                if (state.wantsText && !isTextValid) {
+                                    if (state.textPosition.isNullOrBlank()) add("Text Position")
+                                    if (state.useAiTextInImage && state.textContent.isNullOrBlank()) add("Channel Text Content")
+                                }
+                                if (state.wantsLogo && !isLogoValid) {
+                                    if (state.logoFile.isNullOrBlank()) add("Logo / Avatar Image")
+                                    if (state.logoPosition.isNullOrBlank()) add("Logo Position")
+                                }
+                            }
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "⚠️ Please complete required: ${missing.joinToString(", ")}"
+                                )
+                            }
+                        } else {
+                            bannerViewModel.buildFinalPrompt()
+                            onGenerateBanner()
+                        }
+                    },
+                    subtext = if (!isGenerateEnabled) "⚠️ Complete required selections above to generate" else "⚡ Free generation • Ready in ~15 seconds"
+                )
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            ScreenHeader(
             title = "Generation Settings",
             stepLabel = "Step 2 of 2",
             onBackClick = onBack,
@@ -642,19 +695,8 @@ fun GenerationSettingsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        PrimaryButton(
-            text = "✨ Generate My Banner Now",
-            enabled = isGenerateEnabled,
-            onClick = {
-                bannerViewModel.buildFinalPrompt()
-                onGenerateBanner()
-            },
-            subtext = if (!isGenerateEnabled) "Please complete required selections above" else "⚡ Free generation • Ready in ~15 seconds"
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 
     if (showImageModelSwitcherDialog) {

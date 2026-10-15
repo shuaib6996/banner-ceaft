@@ -507,7 +507,7 @@ fun PromptChatScreen(
                                 ?.removePrefix("#")?.removePrefix("*")?.trim()
                                 ?: text.take(50)
                             bannerViewModel.updateChannelTopic(cleanTopic.take(60))
-                            bannerViewModel.updateCustomPromptDetails(text.take(150))
+                            bannerViewModel.updateCustomPromptDetails(text)
                             onUsePromptInBanner()
                         }
                     )

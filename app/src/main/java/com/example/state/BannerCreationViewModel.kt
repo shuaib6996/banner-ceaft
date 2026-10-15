@@ -161,10 +161,13 @@ class BannerCreationViewModel : ViewModel() {
         val colors = current.selectedColors
         val details = current.customPromptDetails?.trim() ?: ""
 
-        val prompt = if (topic.isBlank() && details.isNotBlank()) {
-            details
+        val isAccordingToPrompt = topic.equals("According to Prompt", ignoreCase = true)
+        val prompt = if ((topic.isBlank() || isAccordingToPrompt) && details.isNotBlank()) {
+            val moodClause = if (mood.isNotBlank()) ", in a $mood aesthetic" else ""
+            val colorClause = if (colors.isNotEmpty()) ", incorporating ${colors.joinToString(", ")} accent color tones" else ""
+            "$details$moodClause$colorClause"
         } else {
-            val topicText = if (topic.isBlank()) "a YouTube channel" else topic
+            val topicText = if (topic.isBlank() || isAccordingToPrompt) "a YouTube channel" else topic
             val colorClause = if (colors.isNotEmpty()) {
                 ", incorporating ${colors.joinToString(", ")} accent color tones"
             } else ""
@@ -637,11 +640,7 @@ class BannerCreationViewModel : ViewModel() {
     }
 
     fun updateCustomPromptDetails(details: String?) {
-        val truncated = if (details != null && details.length > 150) {
-            details.substring(0, 150)
-        } else details
-
-        _state.update { it.copy(customPromptDetails = truncated) }
+        _state.update { it.copy(customPromptDetails = details) }
         buildBasePrompt()
         buildFinalPrompt()
     }

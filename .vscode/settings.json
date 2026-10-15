@@ -1,3 +1,14 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.jdt.ls.java.home": "C:\\Program Files\\Android\\Android Studio\\jbr",
+    "java.import.gradle.java.home": "C:\\Program Files\\Microsoft\\jdk-17.0.18.8-hotspot",
+    "gradle.java.home": "C:\\Program Files\\Microsoft\\jdk-17.0.18.8-hotspot",
+    "java.import.gradle.wrapper.enabled": true,
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "C:\\Program Files\\Microsoft\\jdk-17.0.18.8-hotspot",
+            "default": true
+        }
+    ]
 }
