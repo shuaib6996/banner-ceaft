@@ -85,3 +85,13 @@ This document provides behavioral constraints, styling rules, and coding convent
    - Supports serverless multi-provider routing (`router.huggingface.co`) with automatic provider resolution (`expand[]=inferenceProviderMapping`) and explicit partner routing (`fal-ai`, `together`, `replicate`, `wavespeed`).
    - Conforms strictly to official Hugging Face error status code handling (401, 403, 404, 402/429, and 503 retry loop with 20s delay).
    - Reuses existing provider fields: `providerName`, `apiKey`, `baseUrl`, `imageModel`.
+
+7. **Cloudflare Workers AI Inference Architecture**:
+   - Integrated via [`CloudflareImageService.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/data/CloudflareImageService.kt) for serverless text-to-image synthesis using the Cloudflare REST API v4 (`https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/{MODEL_ID}`).
+   - **4-Field Configuration**: Reuses existing settings fields (`providerName`, `apiKey`, `baseUrl`, `imageModel`). Accommodates both full Base URL (`https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/`) and raw 32-character Account IDs without URL corruption or duplicate slashes.
+   - **Model Catalog & Free Tier**:
+     - *Free Daily Allocation Eligible (10,000 Neurons/day reset at 00:00 UTC)*: `@cf/black-forest-labs/flux-1-schnell` (fast 4-step rectified flow), `@cf/bytedance/stable-diffusion-xl-lightning` (4-8 step SDXL), `@cf/lykon/dreamshaper-8-lcm` (fast LCM), `@cf/black-forest-labs/flux-2-klein-4b`.
+     - *Metered / Paid / Higher Neurons*: `@cf/stabilityai/stable-diffusion-xl-base-1.0` (20-50 steps, higher Neuron consumption, billed at $0.011/1k Neurons after 10k free daily allowance), `@cf/black-forest-labs/flux-2-dev` (flagship multi-reference).
+   - **Dual Response Architecture**: Automatically adapts between JSON Base64-encoded envelopes (`{"result": {"image": "..."}}` used by FLUX) and raw binary image byte streams (`image/png`, `image/jpeg` used by SDXL).
+   - **Safety & Error Handling**: Conforms strictly to Cloudflare REST error codes (401 invalid token, 403 lack of Workers AI permissions, 404 invalid Account ID or model, 429 daily quota / rate limit exhausted, 503 capacity retry loop) and integrates [`ImageSafetyValidator.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/data/ImageSafetyValidator.kt) for AI safety moderation.
+

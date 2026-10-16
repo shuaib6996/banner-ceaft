@@ -142,6 +142,7 @@ class BannerCreationViewModel : ViewModel() {
     private val geminiImageService = GeminiImageService()
     private val openAiService = OpenAiCompatibleService()
     private val huggingFaceService = com.example.data.HuggingFaceImageService()
+    private val cloudflareService = com.example.data.CloudflareImageService()
     private val imageProcessingService = ImageProcessingService()
     private val textOverlayService = TextOverlayService()
     private val logoOverlayService = LogoOverlayService()
@@ -478,12 +479,26 @@ class BannerCreationViewModel : ViewModel() {
             val prompt = optimizePromptForImageGeneration(rawPrompt)
 
             try {
-                // Stage 1: Raw AI Image Generation (Hugging Face, OpenAI-compatible, or Gemini)
+                // Stage 1: Raw AI Image Generation (Cloudflare, Hugging Face, OpenAI-compatible, or Gemini)
+                val isCloudflare = providerConfig?.providerId == "cloudflare" ||
+                    providerConfig?.baseUrl?.contains("cloudflare", ignoreCase = true) == true ||
+                    (providerConfig?.imageModel?.startsWith("@cf/", ignoreCase = true) == true)
                 val isHuggingFaceKey = effectiveKey.startsWith("hf_", ignoreCase = true)
                 val isNvidiaKey = effectiveKey.startsWith("nvapi-", ignoreCase = true)
                 val isGoogleKey = effectiveKey.startsWith("AIzaSy")
 
-                val imageBytes = if (isHuggingFaceKey || providerConfig?.providerId == "huggingface") {
+                val imageBytes = if (isCloudflare) {
+                    val targetModel = providerConfig?.imageModel?.ifBlank { "@cf/black-forest-labs/flux-1-schnell" } ?: "@cf/black-forest-labs/flux-1-schnell"
+                    cloudflareService.generateImage(
+                        baseUrl = providerConfig?.baseUrl.orEmpty(),
+                        apiKey = effectiveKey,
+                        model = targetModel,
+                        prompt = prompt,
+                        onProgress = { msg ->
+                            _state.update { it.copy(generationStageMessage = msg) }
+                        }
+                    )
+                } else if (isHuggingFaceKey || providerConfig?.providerId == "huggingface") {
                     val targetModel = providerConfig?.imageModel?.ifBlank { "black-forest-labs/FLUX.1-schnell" } ?: "black-forest-labs/FLUX.1-schnell"
                     val targetProvider = providerConfig?.baseUrl?.ifBlank { "auto" } ?: "auto"
                     huggingFaceService.generateImage(
@@ -557,7 +572,7 @@ class BannerCreationViewModel : ViewModel() {
                 if (finalBytes != null && context != null) {
                     try {
                         val db = BannerDatabase.getDatabase(context)
-                        val repo = BannerHistoryRepository(db.bannerHistoryDao())
+                        val repo = BannerHistoryRepository(db.bannerHistoryDao(), context)
                         repo.saveBannerToHistory(
                             channelTitle = _state.value.textContent ?: _state.value.channelTopic.ifBlank { "YouTube Banner" },
                             prompt = prompt,

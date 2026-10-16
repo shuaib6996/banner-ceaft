@@ -416,7 +416,11 @@ fun ApiKeySetupScreen(
                                 )
 
                                 Text(
-                                    text = "Chat: ${profile.chatModel.ifBlank { "Default" }}",
+                                    text = if (state.activeTab == ConfigTab.CHAT) {
+                                        "Chat: ${profile.chatModel.ifBlank { "Default" }}"
+                                    } else {
+                                        "Image: ${profile.imageModel.ifBlank { "Default" }}"
+                                    },
                                     fontSize = 10.sp,
                                     color = SlateNeutral,
                                     maxLines = 1,
@@ -447,8 +451,14 @@ fun ApiKeySetupScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 val displayedPresets = if (state.activeTab == ConfigTab.IMAGE) {
-                    listOf(ApiProviderPresets.PRESET_OPENAI_COMPATIBLE, ApiProviderPresets.PRESET_GEMINI) +
-                        ApiProviderPresets.ALL_PRESETS.filter { it.id != "openai_compatible" && it.id != "gemini" }
+                    listOf(
+                        ApiProviderPresets.PRESET_CLOUDFLARE,
+                        ApiProviderPresets.PRESET_OPENAI_COMPATIBLE,
+                        ApiProviderPresets.PRESET_GEMINI,
+                        ApiProviderPresets.PRESET_HUGGINGFACE
+                    ) + ApiProviderPresets.ALL_PRESETS.filter {
+                        it.id != "cloudflare" && it.id != "openai_compatible" && it.id != "gemini" && it.id != "huggingface"
+                    }
                 } else {
                     ApiProviderPresets.ALL_PRESETS
                 }
@@ -588,9 +598,50 @@ fun ApiKeySetupScreen(
                 InsetTextField(
                     value = baseUrl,
                     onValueChange = { baseUrl = it },
-                    placeholder = if (selectedPresetId == "gemini") "https://generativelanguage.googleapis.com" else "Enter or paste Base URL (e.g. https://api.openai.com/v1)",
+                    placeholder = if (selectedPresetId == "gemini") {
+                        "https://generativelanguage.googleapis.com"
+                    } else if (selectedPresetId == "cloudflare") {
+                        "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/"
+                    } else {
+                        "Enter or paste Base URL (e.g. https://api.openai.com/v1)"
+                    },
                     leadingIcon = Icons.Default.Link
                 )
+
+                if (selectedPresetId == "cloudflare" || baseUrl.contains("cloudflare", ignoreCase = true)) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    if (baseUrl.contains("{ACCOUNT_ID}")) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(CoralRed.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                .border(1.dp, CoralRed.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "⚠️ Replace {ACCOUNT_ID} above with your Cloudflare Account ID (or just enter your raw Account ID in this field).",
+                                color = CoralRed,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else if (baseUrl.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SafeMint.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                .border(1.dp, SafeMint.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "✓ Cloudflare Account ID configured.",
+                                color = SafeMint,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -691,12 +742,45 @@ fun ApiKeySetupScreen(
                 )
 
                 // Real-time Key Validation Feedback Badge
+                val isCloudflare = selectedPresetId == "cloudflare" || baseUrl.contains("cloudflare", ignoreCase = true)
                 val isNvidia = selectedPresetId == "openai_compatible" || baseUrl.contains("nvidia", ignoreCase = true)
                 val isGemini = selectedPresetId == "gemini"
                 val isHuggingFace = selectedPresetId == "huggingface" || baseUrl.contains("huggingface", ignoreCase = true)
                 if (inputKey.isNotBlank()) {
                     Spacer(modifier = Modifier.height(6.dp))
-                    if (isHuggingFace) {
+                    if (isCloudflare) {
+                        if (inputKey.length >= 25 && !inputKey.contains(" ")) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(SafeMint.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                    .border(1.dp, SafeMint.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "✓ Valid Cloudflare API Token format (Workers AI permissions required)",
+                                    color = SafeMint,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(CoralRed.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                    .border(1.dp, CoralRed.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "⚠️ Cloudflare tokens are 40-character tokens created in your dashboard. Ensure it has Workers AI Read/Edit permission.",
+                                    color = CoralRed,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    } else if (isHuggingFace) {
                         if (inputKey.startsWith("hf_")) {
                             Box(
                                 modifier = Modifier
@@ -999,6 +1083,31 @@ fun ApiKeySetupScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         ApiProviderPresets.GEMINI_IMAGE_MODELS.forEach { imgOpt ->
+                            val isSelected = imageModel.equals(imgOpt.id, ignoreCase = true)
+                            Box(
+                                modifier = Modifier
+                                    .neumorphicConvex(shape = CircleShape, elevation = if (isSelected) 1.dp else 2.dp)
+                                    .clickable { imageModel = imgOpt.id }
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = imgOpt.displayName,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) CoralRed else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                } else if (selectedPresetId == "cloudflare") {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        ApiProviderPresets.CLOUDFLARE_IMAGE_MODELS.forEach { imgOpt ->
                             val isSelected = imageModel.equals(imgOpt.id, ignoreCase = true)
                             Box(
                                 modifier = Modifier

@@ -68,6 +68,7 @@ data class ModelOption(
 object ApiProviderPresets {
 
     val GEMINI_CHAT_MODELS = listOf(
+        ModelOption("gemini-4-argon", "Gemini 4 Argon", "Google's flagship frontier reasoning model (Pro Plan / 1M context)"),
         ModelOption("gemini-3.8-flash", "Gemini 3.8 Flash", "Google's latest flagship high-speed model (Recommended & Active)"),
         ModelOption("gemini-flash-latest", "Gemini Flash (Latest)", "Always routes to the latest active production flash model"),
         ModelOption("gemini-3.7-flash", "Gemini 3.7 Flash", "Fast reasoning & creative director chat model"),
@@ -217,10 +218,57 @@ object ApiProviderPresets {
         isOpenAiCompatible = false
     )
 
+    val CLOUDFLARE_IMAGE_MODELS = listOf(
+        ModelOption(
+            id = "@cf/black-forest-labs/flux-1-schnell",
+            displayName = "FLUX.1 Schnell [Free Daily]",
+            description = "12B rectified flow, fast 4-step generation. Eligible for Cloudflare's 10,000 free Neurons/day. (Recommended)"
+        ),
+        ModelOption(
+            id = "@cf/bytedance/stable-diffusion-xl-lightning",
+            displayName = "SDXL Lightning [Free Daily]",
+            description = "Distilled high-speed SDXL in 4-8 steps. Runs within free daily 10k Neurons allocation."
+        ),
+        ModelOption(
+            id = "@cf/lykon/dreamshaper-8-lcm",
+            displayName = "DreamShaper 8 LCM [Free Daily]",
+            description = "Fast Latent Consistency Model (photorealism & anime). Free daily allocation eligible."
+        ),
+        ModelOption(
+            id = "@cf/black-forest-labs/flux-2-klein-4b",
+            displayName = "FLUX.2 Klein 4B [Free Daily]",
+            description = "Next-gen ultra-fast compact diffusion model. Efficient generation within daily quota."
+        ),
+        ModelOption(
+            id = "@cf/stabilityai/stable-diffusion-xl-base-1.0",
+            displayName = "SDXL Base 1.0 [Metered / High Neurons]",
+            description = "Foundational 1024px diffusion (20-50 steps). Higher Neurons; free up to 10k/day, then metered at $0.011/1k Neurons."
+        ),
+        ModelOption(
+            id = "@cf/black-forest-labs/flux-2-dev",
+            displayName = "FLUX.2 Dev [Metered / Paid Plan]",
+            description = "Flagship multi-reference visual synthesis. Compute-intensive, requires paid plan or metered Neurons."
+        )
+    )
+
+    val PRESET_CLOUDFLARE = ProviderPreset(
+        id = "cloudflare",
+        name = "Cloudflare Workers AI",
+        baseUrl = "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/",
+        defaultChatModel = "",
+        defaultImageModel = "@cf/black-forest-labs/flux-1-schnell",
+        popularChatModels = emptyList(),
+        popularImageModels = CLOUDFLARE_IMAGE_MODELS.map { it.id },
+        description = "Cloudflare Workers AI serverless GPU inference. Free 10,000 Neurons/day across eligible models.",
+        keyHint = "Cloudflare API Token (Workers AI Read/Edit permission)",
+        isOpenAiCompatible = false
+    )
+
     val ALL_PRESETS = listOf(
         PRESET_GEMINI,
         PRESET_OPENAI_COMPATIBLE,
         PRESET_HUGGINGFACE,
+        PRESET_CLOUDFLARE,
         PRESET_OPENROUTER,
         PRESET_OPENAI,
         PRESET_GROQ,
@@ -232,6 +280,7 @@ object ApiProviderPresets {
     fun getPresetById(id: String): ProviderPreset {
         if (id.equals("custom", ignoreCase = true) || id.equals("openai_compatible", ignoreCase = true)) return PRESET_OPENAI_COMPATIBLE
         if (id.equals("huggingface", ignoreCase = true)) return PRESET_HUGGINGFACE
+        if (id.equals("cloudflare", ignoreCase = true)) return PRESET_CLOUDFLARE
         return ALL_PRESETS.firstOrNull { it.id.equals(id, ignoreCase = true) } ?: PRESET_GEMINI
     }
 }

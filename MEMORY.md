@@ -79,6 +79,7 @@ bannerflow-navigator/
         │   │   │   ├── BannerHistoryDao.kt    # DAO for banner history
         │   │   │   ├── BannerHistoryItem.kt   # Room Entity for saved banners
         │   │   │   ├── BannerHistoryRepository.kt
+        │   │   │   ├── CloudflareImageService.kt # Cloudflare Workers AI image REST client
         │   │   │   ├── DefaultAvatarHelper.kt # Sample avatars / placeholders
         │   │   │   ├── GeminiChatService.kt   # Gemini 3.8 Flash multi-turn chat client
         │   │   │   ├── GeminiImageService.kt  # Gemini / Imagen 3 image REST Client
@@ -167,3 +168,11 @@ bannerflow-navigator/
    - Use `Modifier.neumorphicConvex()` for elevated surfaces (cards, buttons, action tiles).
    - Use `Modifier.neumorphicInset()` for sunken surfaces (search inputs, text boxes, active slots).
    - Use `Modifier.tactilePressable()` for interactive touch feedback with spring scale animations.
+
+4. **Cloudflare Workers AI Integration:**
+   - Endpoint format: `https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/{MODEL_ID}`.
+   - Handled via [`CloudflareImageService.kt`](file:///c:/Users/shuai/Downloads/bannerflow-navigator%20%281%29/app/src/main/java/com/example/data/CloudflareImageService.kt). Base URL accommodates either full endpoint or raw 32-character Account ID.
+   - Dual response decoding: Base64 JSON envelopes (for FLUX models) and raw binary PNG/JPEG byte streams (for SDXL models).
+   - Models: `@cf/black-forest-labs/flux-1-schnell`, `@cf/bytedance/stable-diffusion-xl-lightning`, `@cf/lykon/dreamshaper-8-lcm`, `@cf/black-forest-labs/flux-2-klein-4b` (Free 10,000 Neurons/day pool), and `@cf/stabilityai/stable-diffusion-xl-base-1.0`, `@cf/black-forest-labs/flux-2-dev` (metered/paid).
+   - Full integration across `BannerCreationViewModel`, `ImageEditorViewModel`, `ApiKeyViewModel`, `StudioSideDrawer`, `GenerationSettingsScreen`, and `ApiKeySetupScreen`.
+

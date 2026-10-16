@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [BannerHistoryItem::class], version = 1, exportSchema = false)
+@Database(entities = [BannerHistoryItem::class], version = 2, exportSchema = false)
 abstract class BannerDatabase : RoomDatabase() {
 
     abstract fun bannerHistoryDao(): BannerHistoryDao
@@ -20,7 +20,7 @@ abstract class BannerDatabase : RoomDatabase() {
                     context.applicationContext,
                     BannerDatabase::class.java,
                     "banner_craft_db"
-                ).fallbackToDestructiveMigration().build()
+                ).fallbackToDestructiveMigration(dropAllTables = true).build()
                 INSTANCE = instance
                 instance
             }

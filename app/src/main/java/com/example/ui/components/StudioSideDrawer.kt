@@ -65,6 +65,7 @@ fun StudioSideDrawer(
     onSelectModel: (String) -> Unit,
     onSwitchToGoogle: () -> Unit,
     onSwitchToNvidia: () -> Unit,
+    onSwitchToCloudflare: () -> Unit = {},
     recentHistory: List<BannerHistoryItem>,
     onSelectHistoryItem: (BannerHistoryItem) -> Unit,
     onClose: () -> Unit,
@@ -72,13 +73,18 @@ fun StudioSideDrawer(
     isDark: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val isCloudflare = currentConfig.providerId == "cloudflare" ||
+        currentConfig.baseUrl.contains("cloudflare", ignoreCase = true) ||
+        currentConfig.imageModel.startsWith("@cf/", ignoreCase = true)
     val isGoogle = currentConfig.providerId == "gemini"
     val isHuggingFace = currentConfig.providerId == "huggingface" || currentConfig.apiKey.startsWith("hf_", ignoreCase = true)
     val isNvidia = currentConfig.providerId == "openai_compatible" || currentConfig.baseUrl.contains("nvidia", ignoreCase = true)
     val hasKey = currentConfig.apiKey.isNotBlank() || currentConfig.providerId == "ollama"
 
     // Only Image Models in Studio
-    val relevantImageModels = if (isHuggingFace) {
+    val relevantImageModels = if (isCloudflare) {
+        ApiProviderPresets.CLOUDFLARE_IMAGE_MODELS
+    } else if (isHuggingFace) {
         ApiProviderPresets.HUGGINGFACE_IMAGE_MODELS
     } else if (isGoogle) {
         ApiProviderPresets.GEMINI_IMAGE_MODELS
@@ -203,15 +209,15 @@ fun StudioSideDrawer(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 3. Quick 1-Tap Switch Pills (NVIDIA FLUX vs Google Imagen)
+        // 3. Quick 1-Tap Switch Pills (NVIDIA FLUX vs Google Imagen vs Cloudflare)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(38.dp)
+                    .height(36.dp)
                     .then(
                         if (isNvidia) Modifier.neumorphicInset(shape = CircleShape)
                         else Modifier.neumorphicConvex(shape = CircleShape, elevation = 2.dp)
@@ -220,7 +226,7 @@ fun StudioSideDrawer(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "⚡ NVIDIA FLUX",
+                    text = "⚡ FLUX",
                     fontSize = 11.sp,
                     fontWeight = if (isNvidia) FontWeight.ExtraBold else FontWeight.Medium,
                     color = if (isNvidia) CoralRed else SlateNeutral
@@ -230,7 +236,7 @@ fun StudioSideDrawer(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(38.dp)
+                    .height(36.dp)
                     .then(
                         if (isGoogle) Modifier.neumorphicInset(shape = CircleShape)
                         else Modifier.neumorphicConvex(shape = CircleShape, elevation = 2.dp)
@@ -239,10 +245,29 @@ fun StudioSideDrawer(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "✨ Google Imagen",
+                    text = "✨ Imagen",
                     fontSize = 11.sp,
                     fontWeight = if (isGoogle) FontWeight.ExtraBold else FontWeight.Medium,
                     color = if (isGoogle) CoralRed else SlateNeutral
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1.1f)
+                    .height(36.dp)
+                    .then(
+                        if (isCloudflare) Modifier.neumorphicInset(shape = CircleShape)
+                        else Modifier.neumorphicConvex(shape = CircleShape, elevation = 2.dp)
+                    )
+                    .clickable { onSwitchToCloudflare() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "☁️ Cloudflare",
+                    fontSize = 11.sp,
+                    fontWeight = if (isCloudflare) FontWeight.ExtraBold else FontWeight.Medium,
+                    color = if (isCloudflare) CoralRed else SlateNeutral
                 )
             }
         }
@@ -264,6 +289,15 @@ fun StudioSideDrawer(
                     providerId = "gemini",
                     providerName = "Google Gemini (Direct)",
                     imageModel = "imagen-3.0-generate-002",
+                    isOpenAiCompatible = false
+                ),
+                ApiProviderConfig(
+                    id = "default_image_cloudflare",
+                    providerId = "cloudflare",
+                    providerName = "Cloudflare Workers AI",
+                    baseUrl = "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/",
+                    apiKey = "",
+                    imageModel = "@cf/black-forest-labs/flux-1-schnell",
                     isOpenAiCompatible = false
                 )
             )

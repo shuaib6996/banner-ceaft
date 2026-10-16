@@ -19,12 +19,13 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         val database = BannerDatabase.getDatabase(application)
-        repository = BannerHistoryRepository(database.bannerHistoryDao())
-        recentBannersState = repository.recentBanners.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+        repository = BannerHistoryRepository(database.bannerHistoryDao(), application)
+        recentBannersState = repository.recentBanners
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
     }
 
     fun saveToHistory(channelTitle: String, prompt: String, imageBytes: ByteArray) {

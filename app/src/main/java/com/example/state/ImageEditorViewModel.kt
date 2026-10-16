@@ -88,6 +88,7 @@ class ImageEditorViewModel : ViewModel() {
     private val geminiService = GeminiImageService()
     private val openAiService = com.example.data.OpenAiCompatibleService()
     private val huggingFaceService = com.example.data.HuggingFaceImageService()
+    private val cloudflareService = com.example.data.CloudflareImageService()
 
     fun updateMode(mode: ImageEditorMode) {
         _state.update { it.copy(mode = mode, errorMessage = null, successMessage = null) }
@@ -141,6 +142,9 @@ class ImageEditorViewModel : ViewModel() {
         }
 
         val targetModel = effectiveConfig.imageModel.ifBlank { model }
+        val isCloudflare = effectiveConfig.providerId == "cloudflare" ||
+            effectiveConfig.baseUrl.contains("cloudflare", ignoreCase = true) ||
+            targetModel.startsWith("@cf/", ignoreCase = true)
         val isHuggingFace = effectiveKey.startsWith("hf_", ignoreCase = true) || effectiveConfig.providerId == "huggingface"
         val isNvidiaKey = effectiveKey.startsWith("nvapi-", ignoreCase = true)
         val isGoogleKey = effectiveKey.startsWith("AIzaSy")
@@ -163,7 +167,17 @@ class ImageEditorViewModel : ViewModel() {
                     if (current.prompt.isBlank()) {
                         throw IllegalArgumentException("Please enter a prompt to create an image.")
                     }
-                    if (isHuggingFace) {
+                    if (isCloudflare) {
+                        cloudflareService.generateImage(
+                            baseUrl = effectiveConfig.baseUrl,
+                            apiKey = effectiveKey,
+                            model = targetModel.ifBlank { "@cf/black-forest-labs/flux-1-schnell" },
+                            prompt = current.prompt,
+                            onProgress = { msg ->
+                                _state.update { it.copy(stageMessage = msg) }
+                            }
+                        )
+                    } else if (isHuggingFace) {
                         val targetProvider = effectiveConfig.baseUrl.ifBlank { "auto" }
                         huggingFaceService.generateImage(
                             apiKey = effectiveKey,

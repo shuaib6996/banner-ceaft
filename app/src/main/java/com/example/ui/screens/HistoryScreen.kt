@@ -336,7 +336,7 @@ fun HistoryScreen(
                     ) {
                         items(historyList, key = { it.id }) { item ->
                             val isSelected = selectedImageIds.contains(item.id)
-                            val bitmap = remember(item.imageBytes) {
+                            val bitmap = remember(item.id) {
                                 try {
                                     BitmapFactory.decodeByteArray(item.imageBytes, 0, item.imageBytes.size)
                                 } catch (e: Exception) {

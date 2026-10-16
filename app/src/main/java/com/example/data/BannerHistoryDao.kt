@@ -12,6 +12,9 @@ interface BannerHistoryDao {
     @Query("SELECT * FROM banner_history ORDER BY timestamp DESC LIMIT 50")
     fun getRecentBanners(): Flow<List<BannerHistoryItem>>
 
+    @Query("SELECT * FROM banner_history WHERE id = :id LIMIT 1")
+    suspend fun getBannerById(id: Long): BannerHistoryItem?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBanner(item: BannerHistoryItem)
 

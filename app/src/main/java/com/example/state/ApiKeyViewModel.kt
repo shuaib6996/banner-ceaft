@@ -71,6 +71,7 @@ class ApiKeyViewModel(application: Application) : AndroidViewModel(application) 
     private val openAiService = OpenAiCompatibleService()
     private val geminiChatService = GeminiChatService()
     private val huggingFaceService = com.example.data.HuggingFaceImageService()
+    private val cloudflareService = com.example.data.CloudflareImageService()
 
     private val _state = MutableStateFlow(ApiKeyState())
     val state: StateFlow<ApiKeyState> = _state.asStateFlow()
@@ -420,6 +421,37 @@ class ApiKeyViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
+     * Instantly switches active image profile to Cloudflare Workers AI.
+     */
+    fun switchToCloudflareImage() {
+        viewModelScope.launch {
+            val profiles = _state.value.savedImageProfiles
+            var target = profiles.find { it.providerId == "cloudflare" }
+            if (target != null) {
+                switchActiveImageProfile(target.id)
+            } else {
+                target = ApiProviderConfig(
+                    id = "default_image_cloudflare",
+                    providerId = "cloudflare",
+                    providerName = "Cloudflare Workers AI",
+                    baseUrl = "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/",
+                    apiKey = "",
+                    imageModel = "@cf/black-forest-labs/flux-1-schnell",
+                    isOpenAiCompatible = false
+                )
+                val updatedProfiles = profiles + target
+                _state.update {
+                    it.copy(
+                        imageConfig = target,
+                        savedImageProfiles = updatedProfiles
+                    )
+                }
+                storageManager.saveImageProviderProfiles(updatedProfiles, target.id)
+            }
+        }
+    }
+
+    /**
      * Selects a provider preset for the currently active editing profile.
      * Switches to existing profile if one exists for this provider to prevent accidental overwrites.
      */
@@ -549,12 +581,21 @@ class ApiKeyViewModel(application: Application) : AndroidViewModel(application) 
     ) {
         viewModelScope.launch {
             _state.update { it.copy(isTestingConnection = true, testConnectionResult = null) }
+            val isCloudflare = _state.value.currentEditingConfig.providerId == "cloudflare" ||
+                baseUrl.contains("cloudflare", ignoreCase = true) ||
+                model.startsWith("@cf/", ignoreCase = true)
             val isHuggingFace = _state.value.currentEditingConfig.providerId == "huggingface" ||
                 apiKey.startsWith("hf_", ignoreCase = true) ||
                 baseUrl.contains("huggingface", ignoreCase = true)
             val isGemini = baseUrl.contains("generativelanguage.googleapis.com", ignoreCase = true) ||
                 _state.value.currentEditingConfig.providerId == "gemini"
-            val result = if (isHuggingFace) {
+            val result = if (isCloudflare) {
+                cloudflareService.testConnection(
+                    baseUrl = baseUrl,
+                    apiKey = apiKey,
+                    model = model
+                )
+            } else if (isHuggingFace) {
                 huggingFaceService.testConnection(
                     apiKey = apiKey,
                     model = model,

@@ -131,6 +131,9 @@ fun ImageEditorScreen(
                 onSwitchToNvidia = {
                     apiKeyViewModel.switchToNvidiaImage()
                 },
+                onSwitchToCloudflare = {
+                    apiKeyViewModel.switchToCloudflareImage()
+                },
                 recentHistory = historyItems,
                 onSelectHistoryItem = { item ->
                     imageEditorViewModel.updatePrompt(item.prompt)

@@ -803,6 +803,15 @@ fun ImageModelSwitcherDialog(
                                 apiKey = "",
                                 imageModel = "imagen-3.0-generate-002",
                                 isOpenAiCompatible = false
+                            ),
+                            ApiProviderConfig(
+                                id = "default_image_cloudflare",
+                                providerId = "cloudflare",
+                                providerName = "Cloudflare Workers AI",
+                                baseUrl = "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/",
+                                apiKey = "",
+                                imageModel = "@cf/black-forest-labs/flux-1-schnell",
+                                isOpenAiCompatible = false
                             )
                         )
                     } else savedProfiles
@@ -869,6 +878,56 @@ fun ImageModelSwitcherDialog(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(ApiProviderPresets.GEMINI_IMAGE_MODELS) { modelOpt ->
+                                val isSelected = currentConfig.imageModel.equals(modelOpt.id, ignoreCase = true)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .neumorphicConvex(shape = RoundedCornerShape(12.dp), elevation = if (isSelected) 1.dp else 2.dp)
+                                        .clickable { onSelectModel(modelOpt.id) }
+                                        .padding(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = modelOpt.displayName,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) CoralRed else MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = modelOpt.description,
+                                                fontSize = 10.sp,
+                                                color = SlateNeutral,
+                                                lineHeight = 14.sp
+                                            )
+                                        }
+
+                                        if (isSelected) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Selected",
+                                                tint = SafeMint,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else if (currentConfig.providerId == "cloudflare") {
+                        // Cloudflare Workers AI Image Models List
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(ApiProviderPresets.CLOUDFLARE_IMAGE_MODELS) { modelOpt ->
                                 val isSelected = currentConfig.imageModel.equals(modelOpt.id, ignoreCase = true)
                                 Box(
                                     modifier = Modifier

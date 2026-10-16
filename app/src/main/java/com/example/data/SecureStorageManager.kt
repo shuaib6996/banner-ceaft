@@ -529,12 +529,28 @@ class SecureStorageManager(context: Context) {
                 nvidiaImage = updated
             }
 
-            // Order: NVIDIA first, Gemini second, followed by any other profiles
+            // 4. Ensure Cloudflare Workers AI image profile also exists
+            var cloudflareImage = cleanedImageProfiles.find { it.providerId == "cloudflare" }
+            if (cloudflareImage == null) {
+                cloudflareImage = ApiProviderConfig(
+                    id = "default_image_cloudflare",
+                    providerId = "cloudflare",
+                    providerName = "Cloudflare Workers AI",
+                    baseUrl = "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/",
+                    apiKey = "",
+                    imageModel = "@cf/black-forest-labs/flux-1-schnell",
+                    isOpenAiCompatible = false
+                )
+                cleanedImageProfiles.add(cloudflareImage)
+            }
+
+            // Order: NVIDIA first, Gemini second, Cloudflare third, followed by any other profiles
             val orderedList = mutableListOf<ApiProviderConfig>()
             orderedList.add(nvidiaImage)
             orderedList.add(geminiImage)
+            orderedList.add(cloudflareImage)
             cleanedImageProfiles.forEach { p ->
-                if (p.id != nvidiaImage.id && p.id != geminiImage.id) {
+                if (p.id != nvidiaImage.id && p.id != geminiImage.id && p.id != cloudflareImage.id) {
                     orderedList.add(p)
                 }
             }
