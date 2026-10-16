@@ -93,4 +93,42 @@ class BannerCreationViewModelTest {
         assertFalse(finalPrompt.contains("simple and uncluttered"))
         assertFalse(finalPrompt.contains("avatar logo"))
     }
+
+    @Test
+    fun targetDeviceMode_injectsBoundaryConstraintsForPhoneSafe() {
+        viewModel.updateTargetDeviceMode("Phone Safe")
+        val state = viewModel.state.value
+        assertEquals("Phone Safe", state.targetDeviceMode)
+
+        val prompt = viewModel.buildFinalPrompt()
+        assertTrue(prompt.contains("middle 1546x423 area"))
+        assertTrue(prompt.contains("CRITICAL BOUNDARY CONSTRAINT"))
+    }
+
+    @Test
+    fun targetDeviceMode_injectsBoundaryConstraintsForDesktop() {
+        viewModel.updateTargetDeviceMode("Desktop")
+        val state = viewModel.state.value
+        assertEquals("Desktop", state.targetDeviceMode)
+
+        val prompt = viewModel.buildFinalPrompt()
+        assertTrue(prompt.contains("middle 2560x423 area"))
+        assertTrue(prompt.contains("desktop banner band"))
+    }
+
+    @Test
+    fun targetDimensions_resolvesTargetSizesCorrectly() {
+        val mobile = com.example.data.YouTubeBannerTarget.fromLabel("Phone Safe")
+        assertEquals(1546, mobile.width)
+        assertEquals(423, mobile.height)
+
+        val desktop = com.example.data.YouTubeBannerTarget.fromLabel("Desktop")
+        assertEquals(2560, desktop.width)
+        assertEquals(423, desktop.height)
+
+        val full = com.example.data.YouTubeBannerTarget.fromLabel("Full TV")
+        assertEquals(2560, full.width)
+        assertEquals(1440, full.height)
+    }
 }
+

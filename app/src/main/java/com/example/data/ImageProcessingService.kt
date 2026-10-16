@@ -67,7 +67,78 @@ class ImageProcessingService {
         }
     }
 
+    /**
+     * Crops canvas bytes to exact YouTube device dimensions:
+     * - Mobile / Phone Safe: 1546 x 423
+     * - Desktop: 2560 x 423
+     * - Full TV / All Devices: 2560 x 1440
+     */
+    suspend fun cropToYouTubeTarget(
+        sourceBytes: ByteArray,
+        target: YouTubeBannerTarget
+    ): ByteArray = withContext(Dispatchers.Default) {
+        return@withContext try {
+            if (target == YouTubeBannerTarget.FULL_TV) {
+                return@withContext cropToExactSize(sourceBytes, 2560, 1440)
+            }
+
+            val options = BitmapFactory.Options().apply {
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val sourceBitmap = BitmapFactory.decodeByteArray(sourceBytes, 0, sourceBytes.size, options)
+                ?: throw ImageProcessingException("Failed to decode source image bytes.")
+
+            // If source is already exact target dimensions, return as is
+            if (sourceBitmap.width == target.width && sourceBitmap.height == target.height) {
+                sourceBitmap.recycle()
+                return@withContext sourceBytes
+            }
+
+            // Scale to standard 2560 x 1440 canvas
+            val canvasBitmap = if (sourceBitmap.width == 2560 && sourceBitmap.height == 1440) {
+                sourceBitmap
+            } else {
+                val scaled = Bitmap.createScaledBitmap(sourceBitmap, 2560, 1440, true)
+                if (scaled != sourceBitmap) {
+                    sourceBitmap.recycle()
+                }
+                scaled
+            }
+
+            val bounds = when (target) {
+                YouTubeBannerTarget.MOBILE -> TargetDimensions.YOUTUBE_MOBILE_SAFE_AREA
+                YouTubeBannerTarget.DESKTOP -> TargetDimensions.YOUTUBE_DESKTOP_SAFE_AREA
+                YouTubeBannerTarget.FULL_TV -> TargetDimensions.YOUTUBE_FULL_SAFE_AREA
+            }
+
+            val cropped = Bitmap.createBitmap(canvasBitmap, bounds.x, bounds.y, bounds.width, bounds.height)
+            if (cropped != canvasBitmap) {
+                canvasBitmap.recycle()
+            }
+
+            ByteArrayOutputStream().use { baos ->
+                cropped.compress(Bitmap.CompressFormat.PNG, 100, baos)
+                cropped.recycle()
+                baos.toByteArray()
+            }
+        } catch (e: ImageProcessingException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "YouTube target crop error", e)
+            throw ImageProcessingException("Failed to crop YouTube banner: ${e.message}", e)
+        }
+    }
+
+    suspend fun cropToYouTubeTarget(
+        sourceBytes: ByteArray,
+        modeLabel: String
+    ): ByteArray {
+        val target = YouTubeBannerTarget.fromLabel(modeLabel)
+        return cropToYouTubeTarget(sourceBytes, target)
+    }
+
     companion object {
         private const val TAG = "ImageProcessingService"
     }
 }
+

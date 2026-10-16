@@ -334,9 +334,9 @@ fun ImageEditorScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Aspect Ratio Picker
+                    // YouTube Banner Presets
                     Text(
-                        text = "Aspect Ratio",
+                        text = "📐 YouTube Banner Presets",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -347,12 +347,62 @@ fun ImageEditorScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        val ytPresets = listOf(
+                            "Mobile (1546×423)" to "Phone Safe",
+                            "Desktop (2560×423)" to "Desktop",
+                            "Full YT (16:9)" to "Full TV"
+                        )
+                        ytPresets.forEach { (presetVal, title) ->
+                            val selected = state.selectedAspectRatio == presetVal
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp)
+                                    .then(
+                                        if (selected) Modifier.neumorphicInset(shape = RoundedCornerShape(12.dp))
+                                        else Modifier.neumorphicConvex(shape = RoundedCornerShape(12.dp), elevation = 2.dp)
+                                    )
+                                    .clickable { imageEditorViewModel.updateAspectRatio(presetVal) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = title,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selected) CoralRed else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = if (title == "Phone Safe") "1546×423" else if (title == "Desktop") "2560×423" else "2560×1440",
+                                        fontSize = 10.sp,
+                                        color = if (selected) CoralRed else SlateNeutral
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Standard Aspect Ratios
+                    Text(
+                        text = "Standard Aspect Ratios",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SlateNeutral
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         listOf("16:9", "1:1", "4:3", "9:16").forEach { ratio ->
                             val selected = state.selectedAspectRatio == ratio
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(42.dp)
+                                    .height(38.dp)
                                     .then(
                                         if (selected) Modifier.neumorphicInset(shape = CircleShape)
                                         else Modifier.neumorphicConvex(shape = CircleShape, elevation = 2.dp)
@@ -371,6 +421,7 @@ fun ImageEditorScreen(
                     }
                 }
             } else {
+
                 // Mode 2: Edit Existing Image Card
                 NeumorphicCard {
                     Text(
@@ -523,6 +574,19 @@ fun ImageEditorScreen(
             } else if (state.resultImageBytes != null && state.resultImageBytes!!.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(18.dp))
 
+                // Determine dynamic dimensions from image bytes
+                val (imgWidth, imgHeight) = remember(state.resultImageBytes) {
+                    try {
+                        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeByteArray(state.resultImageBytes, 0, state.resultImageBytes!!.size, options)
+                        Pair(options.outWidth, options.outHeight)
+                    } catch (e: Exception) {
+                        Pair(2560, 1440)
+                    }
+                }
+
+                val isYouTubeFormat = imgWidth == 1546 || imgWidth == 2560 || state.masterCanvasBytes != null
+
                 // Result Output Display Card
                 NeumorphicCard {
                     Row(
@@ -539,7 +603,12 @@ fun ImageEditorScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Result Image Ready",
+                                text = when {
+                                    imgWidth == 1546 && imgHeight == 423 -> "Mobile Safe Ready"
+                                    imgWidth == 2560 && imgHeight == 423 -> "Desktop Banner Ready"
+                                    imgWidth == 2560 && imgHeight == 1440 -> "Full Banner Ready"
+                                    else -> "Result Image Ready"
+                                },
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -547,10 +616,10 @@ fun ImageEditorScreen(
                         }
 
                         Text(
-                            text = "2K PNG",
+                            text = "$imgWidth × $imgHeight PNG",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = SlateNeutral
+                            color = CoralRed
                         )
                     }
 
@@ -564,28 +633,83 @@ fun ImageEditorScreen(
                         }
                     }
 
+                    val previewHeight = when {
+                        imgWidth == 2560 && imgHeight == 423 -> 90.dp
+                        imgWidth == 1546 && imgHeight == 423 -> 125.dp
+                        else -> 200.dp
+                    }
+
                     if (resultBitmap != null) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(220.dp)
+                                .height(previewHeight)
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(Color.Black),
+                                .background(Color.Black)
+                                .padding(4.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Image(
                                 bitmap = resultBitmap.asImageBitmap(),
                                 contentDescription = "Result Image",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp))
                             )
+                        }
+                    }
+
+                    if (isYouTubeFormat && state.masterCanvasBytes != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        // 1-Tap Target Device Switcher in Studio
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "Phone Safe" to "1546×423",
+                                "Desktop" to "2560×423",
+                                "Full TV" to "2560×1440"
+                            ).forEach { (label, _) ->
+                                val isSelected = when (label) {
+                                    "Phone Safe" -> imgWidth == 1546 && imgHeight == 423
+                                    "Desktop" -> imgWidth == 2560 && imgHeight == 423
+                                    else -> imgWidth == 2560 && imgHeight == 1440
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(38.dp)
+                                        .then(
+                                            if (isSelected) Modifier.neumorphicInset(shape = CircleShape)
+                                            else Modifier.neumorphicConvex(shape = CircleShape, elevation = 2.dp)
+                                        )
+                                        .clickable { imageEditorViewModel.switchDeviceTarget(label) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                        color = if (isSelected) CoralRed else SlateNeutral
+                                    )
+                                }
+                            }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    SecondaryButton(
-                        text = if (state.isSaving) "Saving to Photos..." else "Save Image to Gallery 📥",
+                    val downloadLabel = when {
+                        imgWidth == 1546 && imgHeight == 423 -> "Save Mobile Banner (1546 × 423) 📥"
+                        imgWidth == 2560 && imgHeight == 423 -> "Save Desktop Banner (2560 × 423) 📥"
+                        imgWidth == 2560 && imgHeight == 1440 -> "Save Full Banner (2560 × 1440) 📥"
+                        else -> "Save Image to Gallery ($imgWidth × $imgHeight) 📥"
+                    }
+
+                    PrimaryButton(
+                        text = if (state.isSaving) "Saving to Photos..." else downloadLabel,
                         enabled = !state.isSaving,
                         onClick = {
                             imageEditorViewModel.saveToGallery(context) { success, msg ->
@@ -596,6 +720,7 @@ fun ImageEditorScreen(
                     )
                 }
             }
+
 
             Spacer(modifier = Modifier.height(24.dp))
         }

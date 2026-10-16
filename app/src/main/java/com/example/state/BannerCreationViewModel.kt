@@ -33,6 +33,7 @@ data class BannerCreationState(
     val basePromptFragment: String = "",
     val finalPrompt: String = "",
     val selectedAspectRatio: String = "TV 16:9 Display (2560 x 1440)",
+    val targetDeviceMode: String = "Phone Safe", // "Phone Safe" (1546x423), "Desktop" (2560x423), "Full TV" (2560x1440)
     val selectedStyle: String = "3D Render",
     val wantsText: Boolean = true,
     val textPosition: String? = "Center",
@@ -67,6 +68,7 @@ data class BannerCreationState(
         if (basePromptFragment != other.basePromptFragment) return false
         if (finalPrompt != other.finalPrompt) return false
         if (selectedAspectRatio != other.selectedAspectRatio) return false
+        if (targetDeviceMode != other.targetDeviceMode) return false
         if (selectedStyle != other.selectedStyle) return false
         if (wantsText != other.wantsText) return false
         if (textPosition != other.textPosition) return false
@@ -113,6 +115,7 @@ data class BannerCreationState(
         result = 31 * result + basePromptFragment.hashCode()
         result = 31 * result + finalPrompt.hashCode()
         result = 31 * result + selectedAspectRatio.hashCode()
+        result = 31 * result + targetDeviceMode.hashCode()
         result = 31 * result + selectedStyle.hashCode()
         result = 31 * result + wantsText.hashCode()
         result = 31 * result + (textPosition?.hashCode() ?: 0)
@@ -203,8 +206,15 @@ class BannerCreationViewModel : ViewModel() {
         promptParts.add(base)
         promptParts.add("Visual style: $styleKw.")
 
-        // Aspect ratio guidance
-        promptParts.add("Designed for 16:9 widescreen canvas (2560x1440 YouTube banner).")
+        // Aspect ratio & safe boundary guidance
+        val targetMode = current.targetDeviceMode
+        if (targetMode.contains("mobile", ignoreCase = true) || targetMode.contains("phone", ignoreCase = true) || targetMode.contains("1546", ignoreCase = true)) {
+            promptParts.add("Panoramic YouTube banner canvas (2560x1440). CRITICAL BOUNDARY CONSTRAINT: Concentrate all essential visual subjects, characters, symbols, and readable elements strictly within the central horizontal safe band (middle 1546x423 area of the canvas). Keep top and bottom margins atmospheric background ambience, ensuring zero focal points are cut off on mobile devices.")
+        } else if (targetMode.contains("desktop", ignoreCase = true)) {
+            promptParts.add("Panoramic YouTube banner canvas (2560x1440). CRITICAL BOUNDARY CONSTRAINT: Concentrate all essential visual subjects, characters, symbols, and readable elements strictly within the central horizontal desktop banner band (middle 2560x423 area of the canvas). Keep top and bottom margins atmospheric background ambience.")
+        } else {
+            promptParts.add("Designed for 16:9 widescreen canvas (2560x1440 YouTube banner), keeping primary subjects centered within the safe viewing zone.")
+        }
 
         // Text space / AI text instructions
         if (current.wantsText) {
@@ -350,9 +360,10 @@ class BannerCreationViewModel : ViewModel() {
     }
 
     /**
-     * Step 9: Saves final banner image bytes to the device gallery.
+     * Step 9: Saves banner image bytes to the device gallery, cropped to the exact
+     * dimensions of the selected YouTube target device (1546x423 for Mobile, 2560x423 for Desktop, 2560x1440 for Full TV).
      */
-    fun saveBanner(context: Context, onResult: (Boolean, String) -> Unit) {
+    fun saveBanner(context: Context, targetDevice: String? = null, onResult: (Boolean, String) -> Unit) {
         if (_state.value.isSaving) return
 
         val bytesToSave = _state.value.finalImageBytes
@@ -360,6 +371,8 @@ class BannerCreationViewModel : ViewModel() {
             ?: _state.value.generatedImageBytes
 
         if (bytesToSave == null || bytesToSave.isEmpty()) return
+
+        val effectiveDevice = targetDevice ?: _state.value.targetDeviceMode
 
         viewModelScope.launch {
             _state.update {
@@ -369,41 +382,61 @@ class BannerCreationViewModel : ViewModel() {
                 )
             }
 
-            val saveService = SaveService(context)
-            val result = saveService.saveToGallery(bytesToSave, "YT Banners")
+            try {
+                // Crop to exact selected YouTube device resolution (1546x423 for Mobile, 2560x423 for Desktop, 2560x1440 for Full)
+                val croppedBytes = imageProcessingService.cropToYouTubeTarget(bytesToSave, effectiveDevice)
+                val target = com.example.data.YouTubeBannerTarget.fromLabel(effectiveDevice)
 
-            when (result) {
-                is SaveResult.Success -> {
-                    _state.update {
-                        it.copy(
-                            isSaving = false,
-                            saveErrorMessage = null
-                        )
+                val saveService = SaveService(context)
+                val result = saveService.saveToGallery(croppedBytes, "YT Banners")
+
+                when (result) {
+                    is SaveResult.Success -> {
+                        _state.update {
+                            it.copy(
+                                isSaving = false,
+                                saveErrorMessage = null
+                            )
+                        }
+                        onResult(true, "Saved ${target.title} banner (${target.width} × ${target.height}) to gallery!")
                     }
-                    onResult(true, "Saved to your gallery!")
-                }
-                is SaveResult.PermissionDenied -> {
-                    val msg = "Photo access is turned off for this app. Enable it in your phone's Settings to save banners."
-                    _state.update {
-                        it.copy(
-                            isSaving = false,
-                            saveErrorMessage = msg
-                        )
+                    is SaveResult.PermissionDenied -> {
+                        val msg = "Photo access is turned off for this app. Enable it in your phone's Settings to save banners."
+                        _state.update {
+                            it.copy(
+                                isSaving = false,
+                                saveErrorMessage = msg
+                            )
+                        }
+                        onResult(false, msg)
                     }
-                    onResult(false, msg)
-                }
-                is SaveResult.Failure -> {
-                    _state.update {
-                        it.copy(
-                            isSaving = false,
-                            saveErrorMessage = result.message
-                        )
+                    is SaveResult.Failure -> {
+                        _state.update {
+                            it.copy(
+                                isSaving = false,
+                                saveErrorMessage = result.message
+                            )
+                        }
+                        onResult(false, result.message)
                     }
-                    onResult(false, result.message)
                 }
+            } catch (e: Exception) {
+                val msg = "Error saving banner: ${e.message}"
+                _state.update {
+                    it.copy(
+                        isSaving = false,
+                        saveErrorMessage = msg
+                    )
+                }
+                onResult(false, msg)
             }
         }
     }
+
+    fun saveBanner(context: Context, onResult: (Boolean, String) -> Unit) {
+        saveBanner(context, null, onResult)
+    }
+
 
     fun restoreBannerFromHistory(bytes: ByteArray, title: String) {
         _state.update {
@@ -692,6 +725,12 @@ class BannerCreationViewModel : ViewModel() {
         _state.update { it.copy(selectedAspectRatio = ratio) }
         buildFinalPrompt()
     }
+
+    fun updateTargetDeviceMode(mode: String) {
+        _state.update { it.copy(targetDeviceMode = mode) }
+        buildFinalPrompt()
+    }
+
 
     fun updateSelectedStyle(style: String) {
         _state.update { it.copy(selectedStyle = style) }

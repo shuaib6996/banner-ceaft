@@ -2,9 +2,11 @@ package com.example.ui.screens
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -94,7 +96,7 @@ fun ResultScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    var selectedPreviewMode by remember { mutableStateOf("Phone Safe") } // "Phone Safe", "Desktop", "Full TV"
+    var selectedPreviewMode by remember(state.targetDeviceMode) { mutableStateOf(state.targetDeviceMode) } // "Phone Safe", "Desktop", "Full TV"
     var showEditTextSheet by remember { mutableStateOf(false) }
 
     var editTitleText by remember { mutableStateOf(state.textContent ?: "Alex Gaming HD") }
@@ -308,6 +310,16 @@ fun ResultScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                val currentTarget = com.example.data.YouTubeBannerTarget.fromLabel(selectedPreviewMode)
+                val animatedPreviewHeight by animateDpAsState(
+                    targetValue = when (currentTarget) {
+                        com.example.data.YouTubeBannerTarget.MOBILE -> 125.dp
+                        com.example.data.YouTubeBannerTarget.DESKTOP -> 90.dp
+                        com.example.data.YouTubeBannerTarget.FULL_TV -> 190.dp
+                    },
+                    label = "previewHeight"
+                )
+
                 // Banner Canvas Preview Card displaying final image bytes
                 NeumorphicCard {
                     Row(
@@ -324,7 +336,11 @@ fun ResultScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "YouTube Safe 2025",
+                                text = when (currentTarget) {
+                                    com.example.data.YouTubeBannerTarget.MOBILE -> "Mobile Safe (1546 × 423)"
+                                    com.example.data.YouTubeBannerTarget.DESKTOP -> "Desktop Banner (2560 × 423)"
+                                    com.example.data.YouTubeBannerTarget.FULL_TV -> "YouTube Full TV (2560 × 1440)"
+                                },
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -332,20 +348,20 @@ fun ResultScreen(
                         }
 
                         Text(
-                            text = "2560 × 1440 PNG",
+                            text = "${currentTarget.width} × ${currentTarget.height} PNG",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = SlateNeutral
+                            color = CoralRed
                         )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Final Banner Image View
+                    // Final Banner Image View with dynamic safe-zone / device viewport
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(190.dp)
+                            .height(animatedPreviewHeight)
                             .clip(RoundedCornerShape(16.dp))
                             .background(Color.Black)
                             .padding(4.dp),
@@ -353,19 +369,42 @@ fun ResultScreen(
                     ) {
                         val displayBytes = state.finalImageBytes ?: state.processedImageBytes ?: state.generatedImageBytes
                         if (displayBytes != null && displayBytes.isNotEmpty()) {
-                            val bitmap = remember(displayBytes) {
+                            val previewBitmap = remember(displayBytes, currentTarget) {
                                 try {
-                                    BitmapFactory.decodeByteArray(displayBytes, 0, displayBytes.size)
+                                    val masterBitmap = BitmapFactory.decodeByteArray(displayBytes, 0, displayBytes.size)
+                                    if (masterBitmap != null) {
+                                        when (currentTarget) {
+                                            com.example.data.YouTubeBannerTarget.MOBILE -> {
+                                                val canvas = if (masterBitmap.width == 2560 && masterBitmap.height == 1440) masterBitmap
+                                                else Bitmap.createScaledBitmap(masterBitmap, 2560, 1440, true)
+                                                val cropped = Bitmap.createBitmap(canvas, 507, 508, 1546, 423)
+                                                if (canvas != masterBitmap && canvas != cropped) canvas.recycle()
+                                                if (masterBitmap != cropped) masterBitmap.recycle()
+                                                cropped
+                                            }
+                                            com.example.data.YouTubeBannerTarget.DESKTOP -> {
+                                                val canvas = if (masterBitmap.width == 2560 && masterBitmap.height == 1440) masterBitmap
+                                                else Bitmap.createScaledBitmap(masterBitmap, 2560, 1440, true)
+                                                val cropped = Bitmap.createBitmap(canvas, 0, 508, 2560, 423)
+                                                if (canvas != masterBitmap && canvas != cropped) canvas.recycle()
+                                                if (masterBitmap != cropped) masterBitmap.recycle()
+                                                cropped
+                                            }
+                                            com.example.data.YouTubeBannerTarget.FULL_TV -> {
+                                                masterBitmap
+                                            }
+                                        }
+                                    } else null
                                 } catch (e: Exception) {
                                     null
                                 }
                             }
 
-                            if (bitmap != null) {
+                            if (previewBitmap != null) {
                                 Image(
-                                    bitmap = bitmap.asImageBitmap(),
+                                    bitmap = previewBitmap.asImageBitmap(),
                                     contentDescription = "Final Banner Image",
-                                    contentScale = ContentScale.Crop,
+                                    contentScale = ContentScale.Fit,
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clip(RoundedCornerShape(12.dp))
@@ -428,12 +467,12 @@ fun ResultScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Action Buttons - Download & Save
+                // Action Buttons - Download & Save with exact target resolution
                 PrimaryButton(
-                    text = if (state.isSaving) "Saving to Gallery..." else "Download & Save to Photos",
+                    text = if (state.isSaving) "Saving to Gallery..." else "Download & Save ${currentTarget.title} (${currentTarget.width} × ${currentTarget.height})",
                     enabled = !state.isSaving,
                     onClick = {
-                        bannerViewModel.saveBanner(context) { success, message ->
+                        bannerViewModel.saveBanner(context, selectedPreviewMode) { success, message ->
                             scope.launch {
                                 snackbarHostState.showSnackbar(message)
                             }
@@ -441,6 +480,7 @@ fun ResultScreen(
                     },
                     icon = Icons.Default.Download
                 )
+
 
                 Spacer(modifier = Modifier.height(12.dp))
 

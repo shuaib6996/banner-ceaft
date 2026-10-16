@@ -235,7 +235,7 @@ fun GenerationSettingsScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Aspect Ratio & Safe Fit Visualizer Box
+        // Aspect Ratio & YouTube Target Device Selector
         NeumorphicCard {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -243,7 +243,7 @@ fun GenerationSettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "📐 Safe-Zone Fit",
+                    text = "📐 YouTube Banner Size Target",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface
@@ -254,8 +254,9 @@ fun GenerationSettingsScreen(
                         .background(SafeMint.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
+                    val currentTarget = com.example.data.YouTubeBannerTarget.fromLabel(state.targetDeviceMode)
                     Text(
-                        text = "● Safe Active",
+                        text = "● ${currentTarget.title} (${currentTarget.width}×${currentTarget.height})",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = SafeMint,
@@ -267,53 +268,70 @@ fun GenerationSettingsScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .neumorphicInset(shape = RoundedCornerShape(16.dp))
-                    .padding(10.dp),
-                contentAlignment = Alignment.Center
+            // Device Format Selector Pills
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = state.selectedAspectRatio,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = SlateNeutral
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                listOf("Phone Safe", "Desktop", "Full TV").forEach { mode ->
+                    val isSelected = state.targetDeviceMode == mode
                     Box(
                         modifier = Modifier
-                            .border(1.5.dp, CoralRed, RoundedCornerShape(8.dp))
-                            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .weight(1f)
+                            .height(42.dp)
+                            .then(
+                                if (isSelected) {
+                                    Modifier.neumorphicInset(shape = CircleShape)
+                                } else {
+                                    Modifier.neumorphicConvex(shape = CircleShape, elevation = 2.dp)
+                                }
+                            )
+                            .clickable { bannerViewModel.updateTargetDeviceMode(mode) },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "📱 Mobile Safe Center",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = CoralRed
-                            )
-                            Text(
-                                text = "1546 × 423 px • Visible across 100% of screens",
-                                fontSize = 10.sp,
-                                color = SlateNeutral
-                            )
-                        }
+                        Text(
+                            text = mode,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                            color = if (isSelected) CoralRed else SlateNeutral
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = "Auto-scales graphics to eliminate unwanted edge crops.",
-                fontSize = 12.sp,
-                color = SlateNeutral
-            )
+            val currentTarget = com.example.data.YouTubeBannerTarget.fromLabel(state.targetDeviceMode)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .neumorphicInset(shape = RoundedCornerShape(16.dp))
+                    .padding(14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${currentTarget.title} Target • ${currentTarget.width} × ${currentTarget.height} px",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CoralRed
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = when (currentTarget) {
+                            com.example.data.YouTubeBannerTarget.MOBILE -> "Strict Mobile Boundary: AI concentrates all core artwork & text inside the 1546×423 center zone. Output is 100% phone-ready."
+                            com.example.data.YouTubeBannerTarget.DESKTOP -> "Desktop Boundary: Fills full desktop/laptop banner (2560×423 px). AI keeps primary action inside the horizontal band."
+                            com.example.data.YouTubeBannerTarget.FULL_TV -> "Universal Canvas: Complete 2560×1440 16:9 canvas visible on Smart TVs, perfectly safe-zone centered for smaller screens."
+                        },
+                        fontSize = 11.sp,
+                        color = SlateNeutral,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
         }
+
 
         Spacer(modifier = Modifier.height(20.dp))
 

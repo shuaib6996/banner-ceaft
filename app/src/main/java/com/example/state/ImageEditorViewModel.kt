@@ -24,6 +24,7 @@ data class ImageEditorState(
     val selectedAspectRatio: String = "16:9",
     val sourceImageBytes: ByteArray? = null,
     val resultImageBytes: ByteArray? = null,
+    val masterCanvasBytes: ByteArray? = null,
     val isProcessing: Boolean = false,
     val isSaving: Boolean = false,
     val stageMessage: String? = null,
@@ -56,6 +57,11 @@ data class ImageEditorState(
             if (!resultImageBytes.contentEquals(other.resultImageBytes)) return false
         } else if (other.resultImageBytes != null) return false
 
+        if (masterCanvasBytes != null) {
+            if (other.masterCanvasBytes == null) return false
+            if (!masterCanvasBytes.contentEquals(other.masterCanvasBytes)) return false
+        } else if (other.masterCanvasBytes != null) return false
+
         return true
     }
 
@@ -66,6 +72,7 @@ data class ImageEditorState(
         result = 31 * result + selectedAspectRatio.hashCode()
         result = 31 * result + (sourceImageBytes?.contentHashCode() ?: 0)
         result = 31 * result + (resultImageBytes?.contentHashCode() ?: 0)
+        result = 31 * result + (masterCanvasBytes?.contentHashCode() ?: 0)
         result = 31 * result + isProcessing.hashCode()
         result = 31 * result + isSaving.hashCode()
         result = 31 * result + (stageMessage?.hashCode() ?: 0)
@@ -89,6 +96,7 @@ class ImageEditorViewModel : ViewModel() {
     private val openAiService = com.example.data.OpenAiCompatibleService()
     private val huggingFaceService = com.example.data.HuggingFaceImageService()
     private val cloudflareService = com.example.data.CloudflareImageService()
+    private val imageProcessingService = com.example.data.ImageProcessingService()
 
     fun updateMode(mode: ImageEditorMode) {
         _state.update { it.copy(mode = mode, errorMessage = null, successMessage = null) }
@@ -105,6 +113,24 @@ class ImageEditorViewModel : ViewModel() {
     fun updateAspectRatio(ratio: String) {
         _state.update { it.copy(selectedAspectRatio = ratio) }
     }
+
+    fun switchDeviceTarget(modeLabel: String) {
+        val master = _state.value.masterCanvasBytes ?: _state.value.resultImageBytes ?: return
+        viewModelScope.launch {
+            try {
+                val cropped = imageProcessingService.cropToYouTubeTarget(master, modeLabel)
+                _state.update {
+                    it.copy(
+                        resultImageBytes = cropped,
+                        selectedAspectRatio = modeLabel
+                    )
+                }
+            } catch (e: Exception) {
+                // retain existing
+            }
+        }
+    }
+
 
     fun setSourceImage(bytes: ByteArray?) {
         _state.update {
@@ -161,9 +187,29 @@ class ImageEditorViewModel : ViewModel() {
             )
         }
 
+        val isYouTubePreset = current.selectedAspectRatio.contains("1546") ||
+            current.selectedAspectRatio.contains("2560") ||
+            current.selectedAspectRatio.contains("Mobile", ignoreCase = true) ||
+            current.selectedAspectRatio.contains("Desktop", ignoreCase = true) ||
+            current.selectedAspectRatio.contains("Banner", ignoreCase = true)
+
+        val effectiveRatio = if (isYouTubePreset) "16:9" else current.selectedAspectRatio
+
+        val promptToSend = if (isYouTubePreset && current.mode == ImageEditorMode.CREATE) {
+            if (current.selectedAspectRatio.contains("1546") || current.selectedAspectRatio.contains("Mobile", ignoreCase = true)) {
+                current.prompt.trim() + " Panoramic YouTube banner layout. CRITICAL BOUNDARY CONSTRAINT: Concentrate all essential visual subjects, characters, symbols, and readable elements strictly within the central horizontal safe band (middle 1546x423 area of the canvas). Keep top and bottom margins atmospheric background ambience, ensuring zero focal points are cut off on mobile devices."
+            } else if (current.selectedAspectRatio.contains("2560") || current.selectedAspectRatio.contains("Desktop", ignoreCase = true)) {
+                current.prompt.trim() + " Panoramic YouTube banner layout. CRITICAL BOUNDARY CONSTRAINT: Concentrate all essential visual subjects, characters, symbols, and readable elements strictly within the central horizontal desktop banner band (middle 2560x423 area of the canvas). Keep top and bottom margins atmospheric background ambience."
+            } else {
+                current.prompt.trim() + " Designed for 16:9 widescreen canvas (2560x1440 YouTube banner), keeping primary subjects centered within the safe viewing zone."
+            }
+        } else {
+            current.prompt
+        }
+
         viewModelScope.launch {
             try {
-                val outputBytes = if (current.mode == ImageEditorMode.CREATE) {
+                val rawBytes = if (current.mode == ImageEditorMode.CREATE) {
                     if (current.prompt.isBlank()) {
                         throw IllegalArgumentException("Please enter a prompt to create an image.")
                     }
@@ -172,7 +218,7 @@ class ImageEditorViewModel : ViewModel() {
                             baseUrl = effectiveConfig.baseUrl,
                             apiKey = effectiveKey,
                             model = targetModel.ifBlank { "@cf/black-forest-labs/flux-1-schnell" },
-                            prompt = current.prompt,
+                            prompt = promptToSend,
                             onProgress = { msg ->
                                 _state.update { it.copy(stageMessage = msg) }
                             }
@@ -182,7 +228,7 @@ class ImageEditorViewModel : ViewModel() {
                         huggingFaceService.generateImage(
                             apiKey = effectiveKey,
                             model = targetModel.ifBlank { "black-forest-labs/FLUX.1-schnell" },
-                            prompt = current.prompt,
+                            prompt = promptToSend,
                             provider = targetProvider,
                             onProgress = { msg ->
                                 _state.update { it.copy(stageMessage = msg) }
@@ -194,22 +240,22 @@ class ImageEditorViewModel : ViewModel() {
                             baseUrl = targetUrl,
                             apiKey = effectiveKey,
                             model = targetModel,
-                            prompt = current.prompt
+                            prompt = promptToSend
                         )
                     } else {
                         // Smart routing: Imagen :predict has shorter prompt limits (~480 tokens).
                         // For long/detailed prompts, prefer gemini-3.1-flash-image which
                         // handles verbose descriptions much better via :generateContent.
-                        val effectiveModel = if (current.prompt.length > 600 && targetModel.startsWith("imagen", ignoreCase = true)) {
-                            android.util.Log.i("ImageEditor", "Long prompt (${current.prompt.length} chars) detected. Routing from '$targetModel' to 'gemini-3.1-flash-image'.")
+                        val effectiveModel = if (promptToSend.length > 600 && targetModel.startsWith("imagen", ignoreCase = true)) {
+                            android.util.Log.i("ImageEditor", "Long prompt (${promptToSend.length} chars) detected. Routing from '$targetModel' to 'gemini-3.1-flash-image'.")
                             "gemini-3.1-flash-image"
                         } else {
                             targetModel
                         }
                         geminiService.generateImage(
                             apiKey = effectiveKey,
-                            prompt = current.prompt,
-                            aspectRatio = current.selectedAspectRatio,
+                            prompt = promptToSend,
+                            aspectRatio = effectiveRatio,
                             model = effectiveModel
                         )
                     }
@@ -228,14 +274,29 @@ class ImageEditorViewModel : ViewModel() {
                         apiKey = effectiveKey,
                         sourceImageBytes = source,
                         editPrompt = current.editInstruction,
-                        aspectRatio = current.selectedAspectRatio,
+                        aspectRatio = effectiveRatio,
                         model = targetModel
                     )
+                }
+
+                val (outputBytes, masterBytes) = if (isYouTubePreset && rawBytes.isNotEmpty()) {
+                    val master = imageProcessingService.cropToExactSize(rawBytes, 2560, 1440)
+                    val cropped = if (current.selectedAspectRatio.contains("1546") || current.selectedAspectRatio.contains("Mobile", ignoreCase = true)) {
+                        imageProcessingService.cropToYouTubeTarget(master, com.example.data.YouTubeBannerTarget.MOBILE)
+                    } else if (current.selectedAspectRatio.contains("2560") || current.selectedAspectRatio.contains("Desktop", ignoreCase = true)) {
+                        imageProcessingService.cropToYouTubeTarget(master, com.example.data.YouTubeBannerTarget.DESKTOP)
+                    } else {
+                        master
+                    }
+                    Pair(cropped, master)
+                } else {
+                    Pair(rawBytes, null)
                 }
 
                 _state.update {
                     it.copy(
                         resultImageBytes = outputBytes,
+                        masterCanvasBytes = masterBytes,
                         isProcessing = false,
                         stageMessage = null,
                         successMessage = if (current.mode == ImageEditorMode.CREATE) "Image created successfully!" else "Image edited successfully!"
@@ -308,19 +369,35 @@ class ImageEditorViewModel : ViewModel() {
         }
     }
 
-    fun saveToGallery(context: Context, onResult: (Boolean, String) -> Unit) {
-        val bytes = _state.value.resultImageBytes ?: return
+    fun saveToGallery(context: Context, targetDevice: String? = null, onResult: (Boolean, String) -> Unit) {
+        val currentBytes = _state.value.resultImageBytes ?: return
         if (_state.value.isSaving) return
 
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true) }
             val saveService = SaveService(context)
-            val result = saveService.saveToGallery(bytes, "AI Created Images")
+
+            val bytesToSave = if (targetDevice != null) {
+                val master = _state.value.masterCanvasBytes ?: currentBytes
+                try {
+                    imageProcessingService.cropToYouTubeTarget(master, targetDevice)
+                } catch (e: Exception) {
+                    currentBytes
+                }
+            } else {
+                currentBytes
+            }
+
+            val result = saveService.saveToGallery(bytesToSave, "YT Banners")
 
             when (result) {
                 is SaveResult.Success -> {
                     _state.update { it.copy(isSaving = false) }
-                    onResult(true, "Saved image to your gallery!")
+                    val targetInfo = if (targetDevice != null) {
+                        val t = com.example.data.YouTubeBannerTarget.fromLabel(targetDevice)
+                        " ${t.title} (${t.width} × ${t.height})"
+                    } else ""
+                    onResult(true, "Saved$targetInfo to your gallery!")
                 }
                 is SaveResult.PermissionDenied -> {
                     _state.update { it.copy(isSaving = false) }
@@ -333,4 +410,9 @@ class ImageEditorViewModel : ViewModel() {
             }
         }
     }
+
+    fun saveToGallery(context: Context, onResult: (Boolean, String) -> Unit) {
+        saveToGallery(context, null, onResult)
+    }
+
 }
