@@ -115,4 +115,29 @@ class CloudflareImageServiceTest {
         assertNotNull(sdxlBase)
         assertTrue(sdxlBase!!.displayName.contains("Metered"))
     }
+
+    @Test
+    fun sanitizePromptLength_shortPrompt_remainsUnchanged() {
+        val short = "A vibrant gaming banner"
+        assertEquals(short, service.sanitizePromptLength(short))
+    }
+
+    @Test
+    fun sanitizePromptLength_ultraLongPrompt_condensedUnderLimit() {
+        val ultraLong = "A futuristic cyberpunk city with flying vehicles and glowing neon signs. ".repeat(40)
+        assertTrue(ultraLong.length > 2500)
+
+        val sanitized = service.sanitizePromptLength(ultraLong, 1900)
+        assertTrue("Expected length <= 1900 but was ${sanitized.length}", sanitized.length <= 1900)
+        assertTrue(sanitized.endsWith("."))
+    }
+
+    @Test
+    fun buildPayload_ultraLongPrompt_payloadPromptClamped() {
+        val ultraLong = "Epic space battle with starships, planets, nebulae, cosmic dust. ".repeat(40)
+        val payload = service.buildPayload("@cf/black-forest-labs/flux-1-schnell", ultraLong)
+
+        val promptInPayload = payload.getString("prompt")
+        assertTrue("Prompt in payload must be <= 1900 chars", promptInPayload.length <= 1900)
+    }
 }

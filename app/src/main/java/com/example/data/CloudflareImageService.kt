@@ -99,12 +99,39 @@ class CloudflareImageService {
     }
 
     /**
+     * Cloudflare Workers AI has a strict schema constraint: 'Length of /prompt must be <= 2048'.
+     * This method safely condenses any long prompt to under 1900 chars at a clean word/sentence boundary.
+     */
+    fun sanitizePromptLength(prompt: String, maxLimit: Int = 1900): String {
+        val trimmed = prompt.trim()
+        if (trimmed.length <= maxLimit) return trimmed
+
+        val slice = trimmed.take(maxLimit)
+        val lastBreak = maxOf(
+            slice.lastIndexOf(". "),
+            slice.lastIndexOf(", "),
+            slice.lastIndexOf("\n"),
+            slice.lastIndexOf(" ")
+        )
+
+        val clean = if (lastBreak > maxLimit / 2) {
+            slice.substring(0, lastBreak).trimEnd('.', ',', ';', ' ') + "."
+        } else {
+            slice.trimEnd()
+        }
+
+        Log.i(TAG, "Cloudflare prompt condensed from ${trimmed.length} to ${clean.length} chars to satisfy <= 2048 limit.")
+        return clean
+    }
+
+    /**
      * Constructs the JSON request body conforming to the official Cloudflare Workers AI schema
      * for the selected model.
      */
     fun buildPayload(model: String, prompt: String, steps: Int? = null, guidance: Double? = null): JSONObject {
+        val safePrompt = sanitizePromptLength(prompt)
         val payload = JSONObject().apply {
-            put("prompt", prompt)
+            put("prompt", safePrompt)
             val lowerModel = model.lowercase()
             when {
                 lowerModel.contains("flux") -> {
@@ -259,7 +286,7 @@ class CloudflareImageService {
         val cleanModel = model.trim().ifBlank { DEFAULT_MODEL }
         val (_, endpoint) = extractAccountIdAndEndpoint(baseUrl, cleanModel)
 
-        var currentPrompt = prompt.trim()
+        var currentPrompt = sanitizePromptLength(prompt)
         var attempts = 0
         val maxAttempts = 2
 
@@ -329,6 +356,22 @@ class CloudflareImageService {
                 bodyString.take(200)
             }
 
+            // Handle Cloudflare Bad input length error (Length of '/prompt' must be <= 2048)
+            val isLengthExceeded = statusCode == 400 && (
+                bodyString.contains("must be <= 2048", ignoreCase = true) ||
+                parsedError.contains("must be <= 2048", ignoreCase = true)
+            )
+
+            if (isLengthExceeded) {
+                if (attempts < maxAttempts) {
+                    Log.i(TAG, "Prompt exceeded Cloudflare 2048 limit (${currentPrompt.length} chars). Truncating to 1500 chars and retrying...")
+                    onProgress?.invoke("Compressing long prompt for Cloudflare...")
+                    currentPrompt = sanitizePromptLength(currentPrompt, 1500)
+                    delay(300L)
+                    continue
+                }
+            }
+
             // Handle Cloudflare aggressive false-positive NSFW prompt filter (Error 3030)
             val isNsfwFlagged = statusCode == 400 && (
                 bodyString.contains("NSFW", ignoreCase = true) ||
@@ -340,7 +383,7 @@ class CloudflareImageService {
                 if (attempts < maxAttempts) {
                     Log.i(TAG, "Cloudflare flagged prompt '$currentPrompt' as false-positive NSFW. Auto-enriching with safe artistic context...")
                     onProgress?.invoke("Adapting prompt for Cloudflare safety guardrails...")
-                    currentPrompt = "$prompt, clean studio lighting, high resolution, detailed digital artwork"
+                    currentPrompt = sanitizePromptLength("$prompt, clean studio lighting, high resolution, detailed digital artwork", 1900)
                     delay(500L)
                     continue
                 } else {

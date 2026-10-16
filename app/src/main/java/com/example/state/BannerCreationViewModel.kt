@@ -750,9 +750,6 @@ class BannerCreationViewModel : ViewModel() {
      * while preserving the creative/visual core of the user's prompt.
      */
     private fun optimizePromptForImageGeneration(rawPrompt: String): String {
-        // Short prompts pass through untouched
-        if (rawPrompt.length <= 800) return rawPrompt
-
         var optimized = rawPrompt
 
         // Remove verbose layout instructions that image models ignore anyway
@@ -776,9 +773,28 @@ class BannerCreationViewModel : ViewModel() {
             .replace(Regex("\\. \\."), ".")
             .trim()
 
-        // Append compact quality suffix instead of the verbose one
-        if (!optimized.endsWith(".")) optimized += "."
-        optimized += " High-quality YouTube banner, 16:9, no watermark."
+        // Append compact quality suffix instead of the verbose one if not already present
+        if (!optimized.contains("no watermark", ignoreCase = true)) {
+            if (!optimized.endsWith(".")) optimized += "."
+            optimized += " High-quality YouTube banner, 16:9, no watermark."
+        }
+
+        // HARD SAFETY CLAMP: All major image engines (Cloudflare max 2048 chars, Imagen 3 ~480 tokens)
+        // fail on ultra-long prompts. Clamp cleanly at sentence or word boundary under 1800 chars.
+        if (optimized.length > 1800) {
+            val slice = optimized.take(1800)
+            val lastBreak = maxOf(
+                slice.lastIndexOf(". "),
+                slice.lastIndexOf(", "),
+                slice.lastIndexOf("\n"),
+                slice.lastIndexOf(" ")
+            )
+            optimized = if (lastBreak > 1000) {
+                slice.substring(0, lastBreak).trimEnd('.', ',', ';', ' ') + ". High-quality YouTube banner, 16:9."
+            } else {
+                slice.trimEnd()
+            }
+        }
 
         android.util.Log.i("BannerCreation", "Prompt optimized: ${rawPrompt.length} → ${optimized.length} chars")
 
