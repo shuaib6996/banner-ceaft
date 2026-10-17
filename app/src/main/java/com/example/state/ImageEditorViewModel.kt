@@ -21,7 +21,7 @@ data class ImageEditorState(
     val prompt: String = "",
     val editInstruction: String = "",
     val mode: ImageEditorMode = ImageEditorMode.CREATE, // CREATE vs EDIT
-    val selectedAspectRatio: String = "16:9",
+    val selectedAspectRatio: String = "Phone Safe",
     val sourceImageBytes: ByteArray? = null,
     val resultImageBytes: ByteArray? = null,
     val masterCanvasBytes: ByteArray? = null,
@@ -190,18 +190,25 @@ class ImageEditorViewModel : ViewModel() {
         val isYouTubePreset = current.selectedAspectRatio.contains("1546") ||
             current.selectedAspectRatio.contains("2560") ||
             current.selectedAspectRatio.contains("Mobile", ignoreCase = true) ||
+            current.selectedAspectRatio.contains("Phone", ignoreCase = true) ||
             current.selectedAspectRatio.contains("Desktop", ignoreCase = true) ||
             current.selectedAspectRatio.contains("Banner", ignoreCase = true)
 
         val effectiveRatio = if (isYouTubePreset) "16:9" else current.selectedAspectRatio
 
         val promptToSend = if (isYouTubePreset && current.mode == ImageEditorMode.CREATE) {
-            if (current.selectedAspectRatio.contains("1546") || current.selectedAspectRatio.contains("Mobile", ignoreCase = true)) {
-                current.prompt.trim() + " Panoramic YouTube banner layout. CRITICAL BOUNDARY CONSTRAINT: Concentrate all essential visual subjects, characters, symbols, and readable elements strictly within the central horizontal safe band (middle 1546x423 area of the canvas). Keep top and bottom margins atmospheric background ambience, ensuring zero focal points are cut off on mobile devices."
+            if (current.selectedAspectRatio.contains("1546") || current.selectedAspectRatio.contains("Mobile", ignoreCase = true) || current.selectedAspectRatio.contains("Phone", ignoreCase = true)) {
+                "MANDATORY ULTRA-WIDE HORIZONTAL LETTERBOX FORMAT FOR YOUTUBE MOBILE BANNER (1546x423 SAFE ZONE COMPOSITION). " +
+                "COMPOSITION RULES: All visual subjects, typography, titles, logos, characters, and focal graphics MUST be strictly centered within a compact horizontal strip occupying only the middle 20% to 25% vertical height of the image canvas. " +
+                "The top 38% and bottom 38% of the canvas MUST be pure ambient background, negative space, dark lighting, or soft atmospheric textures ONLY, completely empty of any text, heads, or foreground subjects, ensuring zero content is cut off or cropped on mobile screens. " +
+                current.prompt.trim()
             } else if (current.selectedAspectRatio.contains("2560") || current.selectedAspectRatio.contains("Desktop", ignoreCase = true)) {
-                current.prompt.trim() + " Panoramic YouTube banner layout. CRITICAL BOUNDARY CONSTRAINT: Concentrate all essential visual subjects, characters, symbols, and readable elements strictly within the central horizontal desktop banner band (middle 2560x423 area of the canvas). Keep top and bottom margins atmospheric background ambience."
+                "MANDATORY ULTRA-WIDE HORIZONTAL FORMAT FOR YOUTUBE DESKTOP BANNER (2560x423 horizontal strip). " +
+                "COMPOSITION RULES: Concentrate all primary subjects, typography, titles, and focal graphics strictly within the central horizontal band (maximum 28% vertical canvas height). " +
+                "Top and bottom 36% margins must remain empty ambient atmospheric background with zero text or subjects. " +
+                current.prompt.trim()
             } else {
-                current.prompt.trim() + " Designed for 16:9 widescreen canvas (2560x1440 YouTube banner), keeping primary subjects centered within the safe viewing zone."
+                "YouTube Banner canvas (2560x1440 16:9), keeping all focal subjects centered within the safe viewing zone. " + current.prompt.trim()
             }
         } else {
             current.prompt
@@ -281,7 +288,7 @@ class ImageEditorViewModel : ViewModel() {
 
                 val (outputBytes, masterBytes) = if (isYouTubePreset && rawBytes.isNotEmpty()) {
                     val master = imageProcessingService.cropToExactSize(rawBytes, 2560, 1440)
-                    val cropped = if (current.selectedAspectRatio.contains("1546") || current.selectedAspectRatio.contains("Mobile", ignoreCase = true)) {
+                    val cropped = if (current.selectedAspectRatio.contains("1546") || current.selectedAspectRatio.contains("Mobile", ignoreCase = true) || current.selectedAspectRatio.contains("Phone", ignoreCase = true)) {
                         imageProcessingService.cropToYouTubeTarget(master, com.example.data.YouTubeBannerTarget.MOBILE)
                     } else if (current.selectedAspectRatio.contains("2560") || current.selectedAspectRatio.contains("Desktop", ignoreCase = true)) {
                         imageProcessingService.cropToYouTubeTarget(master, com.example.data.YouTubeBannerTarget.DESKTOP)

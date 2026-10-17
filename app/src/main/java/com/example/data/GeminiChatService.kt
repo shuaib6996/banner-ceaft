@@ -36,7 +36,7 @@ class GeminiChatService {
         and generate vivid, ultra-detailed image prompts tailored for YouTube banners.
         
         Guidelines:
-        1. Keep in mind the official YouTube Safe Zone: the central 1546 x 423 px area on a 2560 x 1440 px canvas.
+        1. Keep in mind the official YouTube Safe Zone: the central 1546 x 423 px area on a 2560 x 1440 px canvas. Ensure all titles, characters, and focal graphics are designed for a compact horizontal center strip so they never get sliced on mobile phones.
         2. When suggesting an image prompt, format it clearly inside a block or label it as **[PROMPT]**, describing background visuals, mood, lighting, and composition.
         3. Be encouraging, concise, creative, and actionable!
     """.trimIndent()

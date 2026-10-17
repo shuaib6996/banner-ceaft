@@ -105,20 +105,50 @@ class ImageProcessingService {
                 scaled
             }
 
-            val bounds = when (target) {
-                YouTubeBannerTarget.MOBILE -> TargetDimensions.YOUTUBE_MOBILE_SAFE_AREA
-                YouTubeBannerTarget.DESKTOP -> TargetDimensions.YOUTUBE_DESKTOP_SAFE_AREA
-                YouTubeBannerTarget.FULL_TV -> TargetDimensions.YOUTUBE_FULL_SAFE_AREA
+            val croppedBitmap = when (target) {
+                YouTubeBannerTarget.MOBILE -> {
+                    // Mobile Safe Zone Spec: Output is exact 1546 x 423 (ratio ≈ 3.655).
+                    // To prevent chopping off the top and bottom of titles, logos, characters, and text,
+                    // we sample a centered 2560 x 700 region (ratio 3.657, spanning y=370 to 1070)
+                    // and smoothly scale it to 1546 x 423.
+                    // This preserves 100% of the focal artwork with generous vertical breathing room!
+                    val windowHeight = 700
+                    val windowY = (1440 - windowHeight) / 2 // 370
+                    val slice = Bitmap.createBitmap(canvasBitmap, 0, windowY, 2560, windowHeight)
+                    val scaled = Bitmap.createScaledBitmap(slice, 1546, 423, true)
+                    if (slice != scaled && slice != canvasBitmap) {
+                        slice.recycle()
+                    }
+                    scaled
+                }
+                YouTubeBannerTarget.DESKTOP -> {
+                    // Desktop Banner Spec: Output is exact 2560 x 423 (ratio ≈ 6.05).
+                    // Sample a centered 2560 x 540 region (y=450 to 990) and scale to 2560 x 423,
+                    // ensuring wide desktop text & artwork are never clipped at the edges.
+                    val windowHeight = 540
+                    val windowY = (1440 - windowHeight) / 2 // 450
+                    val slice = Bitmap.createBitmap(canvasBitmap, 0, windowY, 2560, windowHeight)
+                    val scaled = Bitmap.createScaledBitmap(slice, 2560, 423, true)
+                    if (slice != scaled && slice != canvasBitmap) {
+                        slice.recycle()
+                    }
+                    scaled
+                }
+                YouTubeBannerTarget.FULL_TV -> {
+                    canvasBitmap
+                }
             }
 
-            val cropped = Bitmap.createBitmap(canvasBitmap, bounds.x, bounds.y, bounds.width, bounds.height)
-            if (cropped != canvasBitmap) {
+            if (canvasBitmap != sourceBitmap && canvasBitmap != croppedBitmap) {
                 canvasBitmap.recycle()
+            }
+            if (sourceBitmap != croppedBitmap) {
+                sourceBitmap.recycle()
             }
 
             ByteArrayOutputStream().use { baos ->
-                cropped.compress(Bitmap.CompressFormat.PNG, 100, baos)
-                cropped.recycle()
+                croppedBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+                croppedBitmap.recycle()
                 baos.toByteArray()
             }
         } catch (e: ImageProcessingException) {

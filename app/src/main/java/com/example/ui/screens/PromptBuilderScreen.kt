@@ -442,9 +442,177 @@ fun PromptBuilderScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 3. Pick a Mood / Vibe
+            // 3. YouTube Banner Target Device Selector
+            NeumorphicCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "3. 📐 Banner Target Device",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    val currentTarget = com.example.data.YouTubeBannerTarget.fromLabel(state.targetDeviceMode)
+                    Box(
+                        modifier = Modifier
+                            .background(SafeMint.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "● ${currentTarget.width}×${currentTarget.height}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SafeMint,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Choose which device your banner is mainly for. Mobile Safe keeps all important content in the YouTube mobile visible zone.",
+                    fontSize = 11.sp,
+                    color = SlateNeutral,
+                    lineHeight = 15.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Device Format Selector Pills
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    data class DeviceOption(val mode: String, val icon: String, val size: String)
+                    val deviceOptions = listOf(
+                        DeviceOption("Phone Safe", "📱", "1546×423"),
+                        DeviceOption("Desktop", "🖥️", "2560×423"),
+                        DeviceOption("Full TV", "📺", "2560×1440")
+                    )
+                    deviceOptions.forEach { opt ->
+                        val isSelected = state.targetDeviceMode == opt.mode
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .then(
+                                    if (isSelected) {
+                                        Modifier
+                                            .border(1.5.dp, CoralRed, RoundedCornerShape(14.dp))
+                                            .neumorphicInset(shape = RoundedCornerShape(14.dp))
+                                    } else {
+                                        Modifier.neumorphicConvex(shape = RoundedCornerShape(14.dp), elevation = 2.dp)
+                                    }
+                                )
+                                .clickable { bannerViewModel.updateTargetDeviceMode(opt.mode) }
+                                .padding(horizontal = 6.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = opt.icon,
+                                    fontSize = 18.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = opt.mode,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                    color = if (isSelected) CoralRed else MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                                Text(
+                                    text = opt.size,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (isSelected) CoralRed.copy(alpha = 0.7f) else SlateNeutral,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Phone Safe info hint
+                AnimatedVisibility(
+                    visible = state.targetDeviceMode == "Phone Safe"
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SafeMint.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                                .padding(10.dp)
+                        ) {
+                            Text(
+                                text = "📱 Mobile Safe: Your final image will be exactly 1546×423 px — the YouTube mobile visible zone. All important content stays visible on phones.",
+                                fontSize = 11.sp,
+                                color = SafeMint,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = state.targetDeviceMode == "Desktop"
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(CoralRed.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                                .padding(10.dp)
+                        ) {
+                            Text(
+                                text = "🖥️ Desktop: Your final image will be 2560×423 px — the full desktop banner strip visible on PC/laptop browsers.",
+                                fontSize = 11.sp,
+                                color = CoralRed,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = state.targetDeviceMode == "Full TV"
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SlateNeutral.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+                                .padding(10.dp)
+                        ) {
+                            Text(
+                                text = "📺 Full TV: Your final image will be 2560×1440 px — the complete YouTube banner canvas visible on TVs and all devices.",
+                                fontSize = 11.sp,
+                                color = SlateNeutral,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 4. Pick a Mood / Vibe
             Text(
-                text = "3. Pick a mood / vibe *",
+                text = "4. Pick a mood / vibe *",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface

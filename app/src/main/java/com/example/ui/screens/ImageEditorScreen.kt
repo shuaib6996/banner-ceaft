@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -334,60 +335,188 @@ fun ImageEditorScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // YouTube Banner Presets
+                    // YouTube Banner Target Device Selector
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "📐 YouTube Banner Target",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        val badgeText = when {
+                            state.selectedAspectRatio.contains("Desktop", ignoreCase = true) -> "● 2560×423"
+                            state.selectedAspectRatio.contains("Full", ignoreCase = true) || state.selectedAspectRatio == "16:9" -> "● 2560×1440"
+                            state.selectedAspectRatio == "1:1" || state.selectedAspectRatio == "4:3" || state.selectedAspectRatio == "9:16" -> "● ${state.selectedAspectRatio}"
+                            else -> "● 1546×423"
+                        }
+                        Box(
+                            modifier = Modifier
+                                .background(SafeMint.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = badgeText,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SafeMint
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
-                        text = "📐 YouTube Banner Presets",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "Choose your target display. Mobile Safe restricts all essential visuals to the 1546×423 phone safe area.",
+                        fontSize = 11.sp,
+                        color = SlateNeutral,
+                        lineHeight = 15.sp
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val ytPresets = listOf(
-                            "Mobile (1546×423)" to "Phone Safe",
-                            "Desktop (2560×423)" to "Desktop",
-                            "Full YT (16:9)" to "Full TV"
+                        data class DeviceOption(val mode: String, val icon: String, val size: String)
+                        val deviceOptions = listOf(
+                            DeviceOption("Phone Safe", "📱", "1546×423"),
+                            DeviceOption("Desktop", "🖥️", "2560×423"),
+                            DeviceOption("Full TV", "📺", "2560×1440")
                         )
-                        ytPresets.forEach { (presetVal, title) ->
-                            val selected = state.selectedAspectRatio == presetVal
+                        deviceOptions.forEach { opt ->
+                            val isSelected = when (opt.mode) {
+                                "Phone Safe" -> state.selectedAspectRatio == "Phone Safe" ||
+                                    state.selectedAspectRatio.contains("1546") ||
+                                    state.selectedAspectRatio.contains("Mobile", ignoreCase = true)
+                                "Desktop" -> state.selectedAspectRatio == "Desktop" ||
+                                    state.selectedAspectRatio.contains("2560×423") ||
+                                    state.selectedAspectRatio.contains("Desktop", ignoreCase = true)
+                                else -> state.selectedAspectRatio == "Full TV" ||
+                                    state.selectedAspectRatio.contains("Full") ||
+                                    state.selectedAspectRatio == "16:9"
+                            }
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
                                     .then(
-                                        if (selected) Modifier.neumorphicInset(shape = RoundedCornerShape(12.dp))
-                                        else Modifier.neumorphicConvex(shape = RoundedCornerShape(12.dp), elevation = 2.dp)
+                                        if (isSelected) {
+                                            Modifier
+                                                .border(1.5.dp, CoralRed, RoundedCornerShape(14.dp))
+                                                .neumorphicInset(shape = RoundedCornerShape(14.dp))
+                                        } else {
+                                            Modifier.neumorphicConvex(shape = RoundedCornerShape(14.dp), elevation = 2.dp)
+                                        }
                                     )
-                                    .clickable { imageEditorViewModel.updateAspectRatio(presetVal) },
+                                    .clickable { imageEditorViewModel.updateAspectRatio(opt.mode) }
+                                    .padding(horizontal = 6.dp, vertical = 10.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = title,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (selected) CoralRed else MaterialTheme.colorScheme.onSurface
+                                        text = opt.icon,
+                                        fontSize = 18.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = opt.mode,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                        color = if (isSelected) CoralRed else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                     Text(
-                                        text = if (title == "Phone Safe") "1546×423" else if (title == "Desktop") "2560×423" else "2560×1440",
-                                        fontSize = 10.sp,
-                                        color = if (selected) CoralRed else SlateNeutral
+                                        text = opt.size,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (isSelected) CoralRed.copy(alpha = 0.7f) else SlateNeutral,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
                             }
                         }
                     }
 
+                    // Informational tips for active device mode
+                    val isMobileSelected = state.selectedAspectRatio == "Phone Safe" ||
+                        state.selectedAspectRatio.contains("1546") ||
+                        state.selectedAspectRatio.contains("Mobile", ignoreCase = true)
+                    val isDesktopSelected = state.selectedAspectRatio == "Desktop" ||
+                        state.selectedAspectRatio.contains("2560×423") ||
+                        state.selectedAspectRatio.contains("Desktop", ignoreCase = true)
+                    val isFullTvSelected = state.selectedAspectRatio == "Full TV" ||
+                        state.selectedAspectRatio.contains("Full") ||
+                        state.selectedAspectRatio == "16:9"
+
+                    AnimatedVisibility(visible = isMobileSelected) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(SafeMint.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                                    .padding(8.dp)
+                            ) {
+                                Text(
+                                    text = "📱 Mobile Safe: AI focuses all subjects inside YouTube's 1546×423 phone safe area. Your final image will be exactly 1546×423 px.",
+                                    fontSize = 11.sp,
+                                    color = SafeMint,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
+                    }
+
+                    AnimatedVisibility(visible = isDesktopSelected) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(CoralRed.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                                    .padding(8.dp)
+                            ) {
+                                Text(
+                                    text = "🖥️ Desktop: AI focuses subjects inside the 2560×423 desktop banner strip. Your final image will be 2560×423 px.",
+                                    fontSize = 11.sp,
+                                    color = CoralRed,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
+                    }
+
+                    AnimatedVisibility(visible = isFullTvSelected) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(SlateNeutral.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                                    .padding(8.dp)
+                            ) {
+                                Text(
+                                    text = "📺 Full Banner: Full 2560×1440 canvas for large displays and Smart TVs.",
+                                    fontSize = 11.sp,
+                                    color = SlateNeutral,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Standard Aspect Ratios
+                    // Standard Aspect Ratios (for non-banner image creation)
                     Text(
-                        text = "Standard Aspect Ratios",
-                        fontSize = 12.sp,
+                        text = "Other Aspect Ratios (Non-Banner)",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = SlateNeutral
                     )
@@ -397,12 +526,12 @@ fun ImageEditorScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("16:9", "1:1", "4:3", "9:16").forEach { ratio ->
+                        listOf("1:1", "4:3", "9:16").forEach { ratio ->
                             val selected = state.selectedAspectRatio == ratio
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(38.dp)
+                                    .height(36.dp)
                                     .then(
                                         if (selected) Modifier.neumorphicInset(shape = CircleShape)
                                         else Modifier.neumorphicConvex(shape = CircleShape, elevation = 2.dp)

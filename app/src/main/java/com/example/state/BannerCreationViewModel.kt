@@ -47,6 +47,7 @@ data class BannerCreationState(
     // Step 5, 6, 7, 8, 9 & 10 Extensions
     val generatedImageBytes: ByteArray? = null,
     val processedImageBytes: ByteArray? = null,
+    val masterCanvasBytes: ByteArray? = null,
     val logoImageBytes: ByteArray? = null,
     val finalImageBytes: ByteArray? = null,
     val generationErrorMessage: String? = null,
@@ -94,6 +95,11 @@ data class BannerCreationState(
             if (!processedImageBytes.contentEquals(other.processedImageBytes)) return false
         } else if (other.processedImageBytes != null) return false
 
+        if (masterCanvasBytes != null) {
+            if (other.masterCanvasBytes == null) return false
+            if (!masterCanvasBytes.contentEquals(other.masterCanvasBytes)) return false
+        } else if (other.masterCanvasBytes != null) return false
+
         if (logoImageBytes != null) {
             if (other.logoImageBytes == null) return false
             if (!logoImageBytes.contentEquals(other.logoImageBytes)) return false
@@ -127,6 +133,7 @@ data class BannerCreationState(
         result = 31 * result + (logoPosition?.hashCode() ?: 0)
         result = 31 * result + (generatedImageBytes?.contentHashCode() ?: 0)
         result = 31 * result + (processedImageBytes?.contentHashCode() ?: 0)
+        result = 31 * result + (masterCanvasBytes?.contentHashCode() ?: 0)
         result = 31 * result + (logoImageBytes?.contentHashCode() ?: 0)
         result = 31 * result + (finalImageBytes?.contentHashCode() ?: 0)
         result = 31 * result + (generationErrorMessage?.hashCode() ?: 0)
@@ -203,23 +210,32 @@ class BannerCreationViewModel : ViewModel() {
             ?: "${current.selectedStyle.lowercase()} style, high detail, balanced composition"
 
         val promptParts = mutableListOf<String>()
-        promptParts.add(base)
-        promptParts.add("Visual style: $styleKw.")
 
-        // Aspect ratio & safe boundary guidance
+        // 1. Mandatory Safe Boundary & Format Guidance - PREPENDED AT START so AI diffusion engines frame the shot first!
         val targetMode = current.targetDeviceMode
         if (targetMode.contains("mobile", ignoreCase = true) || targetMode.contains("phone", ignoreCase = true) || targetMode.contains("1546", ignoreCase = true)) {
-            promptParts.add("Panoramic YouTube banner canvas (2560x1440). CRITICAL BOUNDARY CONSTRAINT: Concentrate all essential visual subjects, characters, symbols, and readable elements strictly within the central horizontal safe band (middle 1546x423 area of the canvas). Keep top and bottom margins atmospheric background ambience, ensuring zero focal points are cut off on mobile devices.")
+            promptParts.add(
+                "MANDATORY ULTRA-WIDE HORIZONTAL LETTERBOX FORMAT FOR YOUTUBE MOBILE BANNER (1546x423 SAFE ZONE COMPOSITION). " +
+                "COMPOSITION RULES: All visual subjects, typography, titles, logos, characters, and focal graphics MUST be strictly centered within a compact horizontal strip occupying only the middle 20% to 25% vertical height of the image canvas. " +
+                "The top 38% and bottom 38% of the canvas MUST be pure ambient background, negative space, dark lighting, or soft atmospheric textures ONLY, completely empty of any text, heads, or foreground subjects, ensuring zero content is cut off or cropped on mobile screens."
+            )
         } else if (targetMode.contains("desktop", ignoreCase = true)) {
-            promptParts.add("Panoramic YouTube banner canvas (2560x1440). CRITICAL BOUNDARY CONSTRAINT: Concentrate all essential visual subjects, characters, symbols, and readable elements strictly within the central horizontal desktop banner band (middle 2560x423 area of the canvas). Keep top and bottom margins atmospheric background ambience.")
+            promptParts.add(
+                "MANDATORY ULTRA-WIDE HORIZONTAL FORMAT FOR YOUTUBE DESKTOP BANNER (2560x423 horizontal strip). " +
+                "COMPOSITION RULES: Concentrate all primary subjects, typography, titles, and focal graphics strictly within the central horizontal band (maximum 28% vertical canvas height). " +
+                "Top and bottom 36% margins must remain empty ambient atmospheric background with zero text or subjects."
+            )
         } else {
-            promptParts.add("Designed for 16:9 widescreen canvas (2560x1440 YouTube banner), keeping primary subjects centered within the safe viewing zone.")
+            promptParts.add("YouTube Banner canvas (2560x1440 16:9), with all primary subjects centered within the safe viewing zone.")
         }
+
+        promptParts.add(base)
+        promptParts.add("Visual style: $styleKw.")
 
         // Text space / AI text instructions
         if (current.wantsText) {
             if (current.useAiTextInImage && !current.textContent.isNullOrBlank()) {
-                promptParts.add("Include legible overlay title text reading '${current.textContent.trim()}' directly inside the design.")
+                promptParts.add("Include legible overlay title text reading '${current.textContent.trim()}' styled as a sleek, compact, single-line horizontal center title strictly inside the middle 20% vertical safe zone, never touching the top or bottom edges.")
             } else {
                 val textPosKey = current.textPosition ?: "Center"
                 val textSpace = POSITION_SPACE_MAP[textPosKey] ?: "the $textPosKey area simple and uncluttered"
@@ -235,7 +251,7 @@ class BannerCreationViewModel : ViewModel() {
         }
 
         // Quality clause
-        promptParts.add("High quality, professional YouTube banner background design, no watermark, no borders.")
+        promptParts.add("Masterpiece quality, professional YouTube channel banner, perfectly framed, no watermark, no borders.")
 
         val completePrompt = promptParts.joinToString(" ")
         _state.update { it.copy(finalPrompt = completePrompt) }
@@ -366,13 +382,13 @@ class BannerCreationViewModel : ViewModel() {
     fun saveBanner(context: Context, targetDevice: String? = null, onResult: (Boolean, String) -> Unit) {
         if (_state.value.isSaving) return
 
-        val bytesToSave = _state.value.finalImageBytes
+        val effectiveDevice = targetDevice ?: _state.value.targetDeviceMode
+        val master = _state.value.masterCanvasBytes
+        val currentFinal = _state.value.finalImageBytes
             ?: _state.value.processedImageBytes
             ?: _state.value.generatedImageBytes
 
-        if (bytesToSave == null || bytesToSave.isEmpty()) return
-
-        val effectiveDevice = targetDevice ?: _state.value.targetDeviceMode
+        if (master == null && (currentFinal == null || currentFinal.isEmpty())) return
 
         viewModelScope.launch {
             _state.update {
@@ -384,7 +400,11 @@ class BannerCreationViewModel : ViewModel() {
 
             try {
                 // Crop to exact selected YouTube device resolution (1546x423 for Mobile, 2560x423 for Desktop, 2560x1440 for Full)
-                val croppedBytes = imageProcessingService.cropToYouTubeTarget(bytesToSave, effectiveDevice)
+                val croppedBytes = if (master != null && master.isNotEmpty()) {
+                    imageProcessingService.cropToYouTubeTarget(master, effectiveDevice)
+                } else {
+                    imageProcessingService.cropToYouTubeTarget(currentFinal!!, effectiveDevice)
+                }
                 val target = com.example.data.YouTubeBannerTarget.fromLabel(effectiveDevice)
 
                 val saveService = SaveService(context)
@@ -429,6 +449,27 @@ class BannerCreationViewModel : ViewModel() {
                     )
                 }
                 onResult(false, msg)
+            }
+        }
+    }
+
+    /**
+     * Dynamically switches active preview and target output between Phone Safe (1546x423),
+     * Desktop (2560x423), and Full TV (2560x1440) by re-cropping from the master canvas.
+     */
+    fun switchTargetDevice(mode: String) {
+        val master = _state.value.masterCanvasBytes ?: return
+        viewModelScope.launch {
+            try {
+                val cropped = imageProcessingService.cropToYouTubeTarget(master, mode)
+                _state.update {
+                    it.copy(
+                        targetDeviceMode = mode,
+                        finalImageBytes = cropped
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(targetDeviceMode = mode) }
             }
         }
     }
@@ -594,22 +635,42 @@ class BannerCreationViewModel : ViewModel() {
                     applyLogoOverlay()
                 }
 
-                // Stage 5: Finalizing & Room Database Caching
-                _state.update { it.copy(generationStageMessage = "Almost ready...") }
+                // Stage 5: Target Device Calibration (Phone Safe 1546x423, Desktop 2560x423, Full TV 2560x1440)
+                _state.update { it.copy(generationStageMessage = "Calibrating target resolution...") }
 
-                val finalBytes = _state.value.finalImageBytes
+                val master2560 = _state.value.finalImageBytes
                     ?: _state.value.processedImageBytes
                     ?: _state.value.generatedImageBytes
+                    ?: imageBytes
+
+                val targetMode = _state.value.targetDeviceMode
+                val finalCroppedBytes = if (master2560.isNotEmpty()) {
+                    try {
+                        imageProcessingService.cropToYouTubeTarget(master2560, targetMode)
+                    } catch (e: Exception) {
+                        master2560
+                    }
+                } else {
+                    master2560
+                }
+
+                _state.update {
+                    it.copy(
+                        masterCanvasBytes = master2560,
+                        finalImageBytes = finalCroppedBytes,
+                        generationStageMessage = "Almost ready..."
+                    )
+                }
 
                 // Auto-save thumbnail to Room history cache if context available
-                if (finalBytes != null && context != null) {
+                if (finalCroppedBytes.isNotEmpty() && context != null) {
                     try {
                         val db = BannerDatabase.getDatabase(context)
                         val repo = BannerHistoryRepository(db.bannerHistoryDao(), context)
                         repo.saveBannerToHistory(
                             channelTitle = _state.value.textContent ?: _state.value.channelTopic.ifBlank { "YouTube Banner" },
                             prompt = prompt,
-                            imageBytes = finalBytes
+                            imageBytes = finalCroppedBytes
                         )
                     } catch (e: Exception) {
                         // Non-fatal history cache error
@@ -815,7 +876,15 @@ class BannerCreationViewModel : ViewModel() {
         // Append compact quality suffix instead of the verbose one if not already present
         if (!optimized.contains("no watermark", ignoreCase = true)) {
             if (!optimized.endsWith(".")) optimized += "."
-            optimized += " High-quality YouTube banner, 16:9, no watermark."
+            val mode = _state.value.targetDeviceMode
+            val suffix = if (mode.contains("mobile", ignoreCase = true) || mode.contains("phone", ignoreCase = true) || mode.contains("1546", ignoreCase = true)) {
+                " High-quality YouTube banner, horizontal panoramic safe-zone center composition, no watermark."
+            } else if (mode.contains("desktop", ignoreCase = true)) {
+                " High-quality YouTube banner, wide desktop strip composition, no watermark."
+            } else {
+                " High-quality YouTube banner, 16:9, no watermark."
+            }
+            optimized += suffix
         }
 
         // HARD SAFETY CLAMP: All major image engines (Cloudflare max 2048 chars, Imagen 3 ~480 tokens)
@@ -828,8 +897,16 @@ class BannerCreationViewModel : ViewModel() {
                 slice.lastIndexOf("\n"),
                 slice.lastIndexOf(" ")
             )
+            val mode = _state.value.targetDeviceMode
+            val clampSuffix = if (mode.contains("mobile", ignoreCase = true) || mode.contains("phone", ignoreCase = true) || mode.contains("1546", ignoreCase = true)) {
+                ". High-quality YouTube banner, horizontal panoramic safe-zone center composition, no watermark."
+            } else if (mode.contains("desktop", ignoreCase = true)) {
+                ". High-quality YouTube banner, wide desktop strip composition, no watermark."
+            } else {
+                ". High-quality YouTube banner, 16:9, no watermark."
+            }
             optimized = if (lastBreak > 1000) {
-                slice.substring(0, lastBreak).trimEnd('.', ',', ';', ' ') + ". High-quality YouTube banner, 16:9."
+                slice.substring(0, lastBreak).trimEnd('.', ',', ';', ' ') + clampSuffix
             } else {
                 slice.trimEnd()
             }
