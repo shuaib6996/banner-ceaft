@@ -1,0 +1,248 @@
+{
+  "templates": [
+    {
+      "id": "tpl_gaming_neon",
+      "name": "Neon Cyber Strike",
+      "category": "Gaming",
+      "description": "Futuristic cyberpunk neon grid with glowing borders for pro gamers and streamers.",
+      "thumbnailAsset": "templates/thumbs/thumb_gaming_neon.png",
+      "backgroundAsset": "templates/bg_gaming_neon.png",
+      "slots": [
+        {
+          "id": "slot_logo",
+          "type": "image",
+          "label": "Gamer Avatar / Clan Logo",
+          "required": false,
+          "rect": { "x": 600, "y": 600, "width": 240, "height": 240 }
+        },
+        {
+          "id": "slot_title",
+          "type": "text",
+          "label": "Channel Name",
+          "required": true,
+          "rect": { "x": 880, "y": 590, "width": 1100, "height": 130 },
+          "defaultStyle": {
+            "fontSize": 80,
+            "colorHex": "#00F0FF",
+            "isBold": true,
+            "alignment": "LEFT"
+          }
+        },
+        {
+          "id": "slot_tagline",
+          "type": "text",
+          "label": "Schedule / Tagline",
+          "required": false,
+          "rect": { "x": 880, "y": 735, "width": 1100, "height": 85 },
+          "defaultStyle": {
+            "fontSize": 34,
+            "colorHex": "#E0E7FF",
+            "isBold": false,
+            "alignment": "LEFT"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tpl_minimal_gold",
+      "name": "Obsidian Gold",
+      "category": "Minimal",
+      "description": "Sleek luxury black aesthetic with brushed champagne gold framing.",
+      "thumbnailAsset": "templates/thumbs/thumb_minimal_gold.png",
+      "backgroundAsset": "templates/bg_minimal_gold.png",
+      "slots": [
+        {
+          "id": "slot_title",
+          "type": "text",
+          "label": "Channel Name",
+          "required": true,
+          "rect": { "x": 620, "y": 580, "width": 1320, "height": 140 },
+          "defaultStyle": {
+            "fontSize": 82,
+            "colorHex": "#D4AF37",
+            "isBold": true,
+            "alignment": "CENTER"
+          }
+        },
+        {
+          "id": "slot_tagline",
+          "type": "text",
+          "label": "Subtext / Niche",
+          "required": false,
+          "rect": { "x": 620, "y": 735, "width": 1320, "height": 85 },
+          "defaultStyle": {
+            "fontSize": 32,
+            "colorHex": "#CBD5E1",
+            "isBold": false,
+            "alignment": "CENTER"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tpl_vlog_sunset",
+      "name": "Sunset Horizon",
+      "category": "Vlog",
+      "description": "Warm coral and golden dusk aesthetic for lifestyle creators and storytellers.",
+      "thumbnailAsset": "templates/thumbs/thumb_vlog_sunset.png",
+      "backgroundAsset": "templates/bg_vlog_sunset.png",
+      "slots": [
+        {
+          "id": "slot_logo",
+          "type": "image",
+          "label": "Creator Profile Photo",
+          "required": false,
+          "rect": { "x": 600, "y": 595, "width": 240, "height": 240 }
+        },
+        {
+          "id": "slot_title",
+          "type": "text",
+          "label": "Channel Name",
+          "required": true,
+          "rect": { "x": 880, "y": 590, "width": 1100, "height": 130 },
+          "defaultStyle": {
+            "fontSize": 78,
+            "colorHex": "#FFFFFF",
+            "isBold": true,
+            "alignment": "LEFT"
+          }
+        },
+        {
+          "id": "slot_tagline",
+          "type": "text",
+          "label": "Upload Schedule",
+          "required": false,
+          "rect": { "x": 880, "y": 735, "width": 1100, "height": 85 },
+          "defaultStyle": {
+            "fontSize": 32,
+            "colorHex": "#FED7AA",
+            "isBold": false,
+            "alignment": "LEFT"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tpl_tech_quantum",
+      "name": "Quantum Circuit",
+      "category": "Tech",
+      "description": "Deep space navy with glowing cyan data circuits for tech reviewers and developers.",
+      "thumbnailAsset": "templates/thumbs/thumb_tech_quantum.png",
+      "backgroundAsset": "templates/bg_tech_quantum.png",
+      "slots": [
+        {
+          "id": "slot_logo",
+          "type": "image",
+          "label": "Tech Badge / Brand Icon",
+          "required": false,
+          "rect": { "x": 600, "y": 600, "width": 240, "height": 240 }
+        },
+        {
+          "id": "slot_title",
+          "type": "text",
+          "label": "Brand / Channel Name",
+          "required": true,
+          "rect": { "x": 880, "y": 590, "width": 1100, "height": 130 },
+          "defaultStyle": {
+            "fontSize": 78,
+            "colorHex": "#38BDF8",
+            "isBold": true,
+            "alignment": "LEFT"
+          }
+        },
+        {
+          "id": "slot_tagline",
+          "type": "text",
+          "label": "Tech Reviews & Tutorials",
+          "required": false,
+          "rect": { "x": 880, "y": 735, "width": 1100, "height": 85 },
+          "defaultStyle": {
+            "fontSize": 32,
+            "colorHex": "#94A3B8",
+            "isBold": false,
+            "alignment": "LEFT"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tpl_education_clean",
+      "name": "Clean Academy",
+      "category": "Education",
+      "description": "Distraction-free emerald green and dark slate for tutors, schools, and finance channels.",
+      "thumbnailAsset": "templates/thumbs/thumb_education_clean.png",
+      "backgroundAsset": "templates/bg_education_clean.png",
+      "slots": [
+        {
+          "id": "slot_title",
+          "type": "text",
+          "label": "Course / Academy Title",
+          "required": true,
+          "rect": { "x": 600, "y": 580, "width": 1360, "height": 140 },
+          "defaultStyle": {
+            "fontSize": 80,
+            "colorHex": "#34D399",
+            "isBold": true,
+            "alignment": "CENTER"
+          }
+        },
+        {
+          "id": "slot_tagline",
+          "type": "text",
+          "label": "Subject / Tagline",
+          "required": false,
+          "rect": { "x": 600, "y": 735, "width": 1360, "height": 85 },
+          "defaultStyle": {
+            "fontSize": 34,
+            "colorHex": "#F1F5F9",
+            "isBold": false,
+            "alignment": "CENTER"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tpl_esports_crimson",
+      "name": "Crimson Apex",
+      "category": "Gaming",
+      "description": "Aggressive red speed angles for competitive esports teams and FPS creators.",
+      "thumbnailAsset": "templates/thumbs/thumb_esports_crimson.png",
+      "backgroundAsset": "templates/bg_esports_crimson.png",
+      "slots": [
+        {
+          "id": "slot_logo",
+          "type": "image",
+          "label": "Team Crest / Logo",
+          "required": false,
+          "rect": { "x": 600, "y": 595, "width": 240, "height": 240 }
+        },
+        {
+          "id": "slot_title",
+          "type": "text",
+          "label": "Clan / Gamer Tag",
+          "required": true,
+          "rect": { "x": 880, "y": 590, "width": 1100, "height": 130 },
+          "defaultStyle": {
+            "fontSize": 84,
+            "colorHex": "#FF453A",
+            "isBold": true,
+            "alignment": "LEFT"
+          }
+        },
+        {
+          "id": "slot_tagline",
+          "type": "text",
+          "label": "Pro Roster / Stream Times",
+          "required": false,
+          "rect": { "x": 880, "y": 735, "width": 1100, "height": 85 },
+          "defaultStyle": {
+            "fontSize": 32,
+            "colorHex": "#E5E7EB",
+            "isBold": false,
+            "alignment": "LEFT"
+          }
+        }
+      ]
+    }
+  ]
+}

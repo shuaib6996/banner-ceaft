@@ -54,7 +54,9 @@ data class BannerCreationState(
     val generationStageMessage: String? = null,
     val isGenerating: Boolean = false,
     val isSaving: Boolean = false,
-    val saveErrorMessage: String? = null
+    val saveErrorMessage: String? = null,
+    val isTemplateBanner: Boolean = false,
+    val templateName: String? = null
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -915,6 +917,21 @@ class BannerCreationViewModel : ViewModel() {
         android.util.Log.i("BannerCreation", "Prompt optimized: ${rawPrompt.length} → ${optimized.length} chars")
 
         return optimized
+    }
+
+    fun loadTemplateBanner(finalBytes: ByteArray, masterBytes: ByteArray, name: String) {
+        _state.update {
+            it.copy(
+                isTemplateBanner = true,
+                templateName = name,
+                finalImageBytes = finalBytes,
+                masterCanvasBytes = masterBytes,
+                processedImageBytes = null,
+                generatedImageBytes = null,
+                generationErrorMessage = null,
+                isGenerating = false
+            )
+        }
     }
 
     fun resetToDefaults() {

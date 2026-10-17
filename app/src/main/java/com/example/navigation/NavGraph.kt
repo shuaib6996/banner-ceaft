@@ -28,14 +28,19 @@ import com.example.ui.screens.PromptBuilderScreen
 import com.example.ui.screens.ResultScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.state.AuthViewModel
+import com.example.state.TemplateCreationViewModel
 import com.example.ui.screens.LoginScreen
 import com.example.ui.screens.SplashScreen
+import com.example.ui.screens.TemplatePickerScreen
+import com.example.ui.screens.TemplateCustomizeScreen
 
 object Routes {
     const val SPLASH = "splash"
     const val API_KEY_SETUP = "api-key-setup"
     const val LOGIN = "login"
     const val HOME = "home"
+    const val TEMPLATE_PICKER = "template-picker"
+    const val TEMPLATE_CUSTOMIZE = "template-customize"
     const val PROMPT_CHAT = "prompt-chat"
     const val PROMPT_BUILDER = "prompt-builder"
     const val GENERATION_SETTINGS = "generation-settings"
@@ -57,6 +62,7 @@ fun AppNavHost(
     val historyViewModel: HistoryViewModel = viewModel()
     val imageEditorViewModel: ImageEditorViewModel = viewModel()
     val promptChatViewModel: PromptChatViewModel = viewModel()
+    val templateCreationViewModel: TemplateCreationViewModel = viewModel()
 
     NavHost(
         navController = navController,
@@ -143,6 +149,9 @@ fun AppNavHost(
                     bannerViewModel.resetToDefaults()
                     navController.navigate(Routes.PROMPT_BUILDER)
                 },
+                onNavigateToTemplatePicker = {
+                    navController.navigate(Routes.TEMPLATE_PICKER)
+                },
                 onNavigateToPromptChat = {
                     navController.navigate(Routes.PROMPT_CHAT)
                 },
@@ -159,6 +168,31 @@ fun AppNavHost(
                 onToggleDark = { appThemeViewModel.toggleDarkMode() },
                 authViewModel = authViewModel,
                 onNavigateToLogin = { navController.navigate(Routes.LOGIN) }
+            )
+        }
+
+        composable(Routes.TEMPLATE_PICKER) {
+            TemplatePickerScreen(
+                viewModel = templateCreationViewModel,
+                onNavigateToCustomize = {
+                    navController.navigate(Routes.TEMPLATE_CUSTOMIZE)
+                },
+                onBack = { navController.popBackStack() },
+                isDark = themeState.isDarkMode,
+                onToggleDark = { appThemeViewModel.toggleDarkMode() }
+            )
+        }
+
+        composable(Routes.TEMPLATE_CUSTOMIZE) {
+            TemplateCustomizeScreen(
+                viewModel = templateCreationViewModel,
+                onBannerCreated = { finalBytes, masterBytes, templateName ->
+                    bannerViewModel.loadTemplateBanner(finalBytes, masterBytes, templateName)
+                    navController.navigate(Routes.RESULT)
+                },
+                onBack = { navController.popBackStack() },
+                isDark = themeState.isDarkMode,
+                onToggleDark = { appThemeViewModel.toggleDarkMode() }
             )
         }
 
@@ -218,6 +252,11 @@ fun AppNavHost(
                 },
                 onTweakStyle = {
                     navController.navigate(Routes.PROMPT_BUILDER)
+                },
+                onNavigateToTemplatePicker = {
+                    navController.navigate(Routes.TEMPLATE_PICKER) {
+                        popUpTo(Routes.HOME)
+                    }
                 },
                 onBack = { navController.popBackStack() },
                 isDark = themeState.isDarkMode,

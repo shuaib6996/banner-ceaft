@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import com.example.state.BannerCreationViewModel
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.components.PrimaryButton
+import com.example.ui.components.SecondaryButton
 import com.example.ui.components.ScreenHeader
 import com.example.ui.theme.CoralRed
 import com.example.ui.theme.SafeMint
@@ -62,6 +63,7 @@ import com.example.ui.theme.neumorphicInset
 fun HomeScreen(
     bannerViewModel: BannerCreationViewModel,
     onStartNewBanner: () -> Unit,
+    onNavigateToTemplatePicker: () -> Unit,
     onNavigateToPromptChat: () -> Unit,
     onNavigateToImageStudio: () -> Unit,
     onNavigateToHistory: () -> Unit,
@@ -253,13 +255,88 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 PrimaryButton(
-                    text = "Start New Banner",
+                    text = "Start New Banner (AI)",
                     onClick = {
                         bannerViewModel.resetToDefaults()
                         onStartNewBanner()
                     },
                     icon = Icons.AutoMirrored.Filled.ArrowForward
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                SecondaryButton(
+                    text = "Use a Template 📐",
+                    onClick = onNavigateToTemplatePicker
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Ready Templates Feature Card
+            NeumorphicCard {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToTemplatePicker() },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .neumorphicConvex(shape = CircleShape, elevation = 3.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "📐", fontSize = 22.sp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Ready Templates",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .background(SafeMint.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "INSTANT",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = SafeMint
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Pro pre-made banners • Fill text & logo slots",
+                                fontSize = 12.sp,
+                                color = SlateNeutral,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = "Browse ›",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CoralRed
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(14.dp))

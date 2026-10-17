@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
@@ -86,6 +87,7 @@ fun ResultScreen(
     apiKeyViewModel: ApiKeyViewModel,
     onStartOver: () -> Unit,
     onTweakStyle: () -> Unit,
+    onNavigateToTemplatePicker: () -> Unit = {},
     onBack: () -> Unit,
     isDark: Boolean,
     onToggleDark: () -> Unit
@@ -111,7 +113,7 @@ fun ResultScreen(
 
     // Trigger image generation on screen load if needed (guarded against unintended loops/re-triggers)
     LaunchedEffect(Unit) {
-        if (!hasAttemptedGeneration && state.finalImageBytes == null && state.processedImageBytes == null && state.generatedImageBytes == null && !state.isGenerating) {
+        if (!state.isTemplateBanner && !hasAttemptedGeneration && state.finalImageBytes == null && state.processedImageBytes == null && state.generatedImageBytes == null && !state.isGenerating) {
             hasAttemptedGeneration = true
             bannerViewModel.generateBanner(
                 apiKey = apiKeyState.imageConfig.apiKey,
@@ -279,7 +281,7 @@ fun ResultScreen(
                             .padding(horizontal = 14.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            text = "🎉 GEMINI AI & TEXT OVERLAY COMPLETE",
+                            text = if (state.isTemplateBanner) "🎉 TEMPLATE: ${state.templateName?.uppercase() ?: "PRE-MADE DESIGN"}" else "🎉 GEMINI AI & TEXT OVERLAY COMPLETE",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = SafeMint
@@ -481,17 +483,21 @@ fun ResultScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 SecondaryButton(
-                    text = "Try Again (Fresh Variation)",
+                    text = if (state.isTemplateBanner) "Pick Another Template 🎨" else "Try Again (Fresh Variation)",
                     enabled = !state.isGenerating,
                     onClick = {
-                        bannerViewModel.generateBanner(
-                            apiKey = apiKeyState.imageConfig.apiKey,
-                            context = context,
-                            model = apiKeyState.imageConfig.imageModel,
-                            providerConfig = apiKeyState.imageConfig
-                        )
+                        if (state.isTemplateBanner) {
+                            onNavigateToTemplatePicker()
+                        } else {
+                            bannerViewModel.generateBanner(
+                                apiKey = apiKeyState.imageConfig.apiKey,
+                                context = context,
+                                model = apiKeyState.imageConfig.imageModel,
+                                providerConfig = apiKeyState.imageConfig
+                            )
+                        }
                     },
-                    icon = Icons.Default.Refresh
+                    icon = if (state.isTemplateBanner) Icons.Default.AutoAwesome else Icons.Default.Refresh
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
