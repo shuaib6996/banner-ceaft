@@ -183,7 +183,7 @@ class ImageProcessingService {
                 }
             }
 
-            // Target is MOBILE or DESKTOP: Generate 2560x1440 YouTube-ready banner with clean ambient background
+            // Target is MOBILE or DESKTOP: Generate 2560x1440 YouTube-ready banner with thematic atmospheric environment
             val resultBitmap = Bitmap.createBitmap(2560, 1440, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(resultBitmap)
 
@@ -191,67 +191,27 @@ class ImageProcessingService {
             val safeHeight = TargetDimensions.YOUTUBE_MOBILE_SAFE_AREA.height // 423
             val bottomY = safeY + safeHeight // 931
 
-            // 1. Draw clean, simple, dark ambient background across the 2560x1440 canvas (matching reference)
-            // Center is subtle deep charcoal (#181520), edges fade to deep black (#0B0910)
-            val ambientGradient = android.graphics.RadialGradient(
-                1280f, 720f, 1500f,
-                intArrayOf(
-                    Color.argb(255, 24, 20, 30),
-                    Color.argb(255, 16, 13, 20),
-                    Color.argb(255, 10, 8, 14)
-                ),
-                floatArrayOf(0f, 0.55f, 1f),
-                android.graphics.Shader.TileMode.CLAMP
-            )
-            val bgPaint = Paint().apply {
-                shader = ambientGradient
+            // 1. Create silky atmospheric depth-of-field background from the prompt artwork
+            // Downscale to 160x90, apply fast box blur, and scale back up to 2560x1440 with bilinear interpolation
+            val smallBg = Bitmap.createScaledBitmap(canvasBitmap, 160, 90, true)
+            val blurredBg = fastBoxBlur(smallBg, radius = 4, passes = 2)
+            if (smallBg != blurredBg) smallBg.recycle()
+
+            val filterPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+            canvas.drawBitmap(blurredBg, Rect(0, 0, 160, 90), Rect(0, 0, 2560, 1440), filterPaint)
+            blurredBg.recycle()
+
+            // 2. Subtle ambient darkening (15-20%) so the central safe zone pops with high contrast
+            // while preserving the prompt's rich colors, trees, structures, and lighting design (NO black void)
+            val dimPaint = Paint().apply {
+                color = Color.argb(45, 0, 0, 0)
                 style = Paint.Style.FILL
             }
-            canvas.drawRect(0f, 0f, 2560f, 1440f, bgPaint)
+            canvas.drawRect(0f, 0f, 2560f, 1440f, dimPaint)
 
-            // 2. Target the safe zone (height 423, Y: 508..931) for the prompt's artwork:
-            // Scale artwork so its height fits inside the safe zone (423px) so all content is preserved
-            val artScale = safeHeight.toFloat() / sourceBitmap.height.toFloat()
-            val scaledArtW = max(1, (sourceBitmap.width * artScale).toInt())
-            val scaledArtH = safeHeight
-            val scaledArtwork = Bitmap.createScaledBitmap(sourceBitmap, scaledArtW, scaledArtH, true)
-
-            if (scaledArtW <= 2560) {
-                val xOffset = (2560 - scaledArtW) / 2f
-                canvas.drawBitmap(scaledArtwork, xOffset, safeY.toFloat(), null)
-
-                // Soft horizontal feather at left and right edges so it blends seamlessly into the dark ambient stage
-                val fadeWidth = min(140f, scaledArtW / 4f)
-                if (fadeWidth > 0f) {
-                    val leftFadeShader = android.graphics.LinearGradient(
-                        xOffset, safeY.toFloat(), xOffset + fadeWidth, safeY.toFloat(),
-                        Color.argb(255, 24, 20, 30), Color.TRANSPARENT,
-                        android.graphics.Shader.TileMode.CLAMP
-                    )
-                    val leftFadePaint = Paint().apply {
-                        shader = leftFadeShader
-                        style = Paint.Style.FILL
-                    }
-                    canvas.drawRect(xOffset, safeY.toFloat(), xOffset + fadeWidth, bottomY.toFloat(), leftFadePaint)
-
-                    val rightFadeShader = android.graphics.LinearGradient(
-                        xOffset + scaledArtW - fadeWidth, safeY.toFloat(), xOffset + scaledArtW, safeY.toFloat(),
-                        Color.TRANSPARENT, Color.argb(255, 24, 20, 30),
-                        android.graphics.Shader.TileMode.CLAMP
-                    )
-                    val rightFadePaint = Paint().apply {
-                        shader = rightFadeShader
-                        style = Paint.Style.FILL
-                    }
-                    canvas.drawRect(xOffset + scaledArtW - fadeWidth, safeY.toFloat(), xOffset + scaledArtW, bottomY.toFloat(), rightFadePaint)
-                }
-            } else {
-                val cropX = (scaledArtW - 2560) / 2
-                val srcRect = Rect(cropX, 0, cropX + 2560, safeHeight)
-                val dstRect = Rect(0, safeY, 2560, bottomY)
-                canvas.drawBitmap(scaledArtwork, srcRect, dstRect, null)
-            }
-            if (scaledArtwork != sourceBitmap) scaledArtwork.recycle()
+            // 3. Draw the crisp, high-detail safe zone strip from the prompt artwork across Y: 508..931
+            val stripRect = Rect(0, safeY, 2560, bottomY)
+            canvas.drawBitmap(canvasBitmap, stripRect, stripRect, filterPaint)
 
             // 3. Draw sleek champagne gold glowing rim divider lines (as in reference image)
             fun drawGoldenRimLine(yPos: Float) {

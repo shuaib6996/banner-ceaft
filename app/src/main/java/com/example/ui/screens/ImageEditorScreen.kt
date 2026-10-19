@@ -871,9 +871,16 @@ fun ImageEditorScreen(
                                 "Full TV" to "2560×1440"
                             ).forEach { (label, _) ->
                                 val isSelected = when (label) {
-                                    "Phone Safe" -> imgWidth == 1546 && imgHeight == 423
-                                    "Desktop" -> imgWidth == 2560 && imgHeight == 423
-                                    else -> imgWidth == 2560 && imgHeight == 1440
+                                    "Phone Safe" -> state.selectedAspectRatio.contains("Phone", ignoreCase = true) ||
+                                            state.selectedAspectRatio.contains("Mobile", ignoreCase = true) ||
+                                            state.selectedAspectRatio.contains("1546") ||
+                                            (imgWidth == 1546 && imgHeight == 423)
+                                    "Desktop" -> (state.selectedAspectRatio.contains("Desktop", ignoreCase = true) ||
+                                            (state.selectedAspectRatio.contains("2560") && !state.selectedAspectRatio.contains("1440") && !state.selectedAspectRatio.contains("TV", ignoreCase = true))) ||
+                                            (imgWidth == 2560 && imgHeight == 423)
+                                    else -> state.selectedAspectRatio.contains("Full", ignoreCase = true) ||
+                                            state.selectedAspectRatio.contains("TV", ignoreCase = true) ||
+                                            (!state.selectedAspectRatio.contains("Phone", ignoreCase = true) && !state.selectedAspectRatio.contains("Desktop", ignoreCase = true) && !state.selectedAspectRatio.contains("1546"))
                                 }
                                 Box(
                                     modifier = Modifier
@@ -900,10 +907,13 @@ fun ImageEditorScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val downloadLabel = when {
-                        imgWidth == 1546 && imgHeight == 423 -> "Save Mobile Banner (1546 × 423) 📥"
-                        imgWidth == 2560 && imgHeight == 423 -> "Save Desktop Banner (2560 × 423) 📥"
-                        imgWidth == 2560 && imgHeight == 1440 -> "Save Full Banner (2560 × 1440) 📥"
-                        else -> "Save Image to Gallery ($imgWidth × $imgHeight) 📥"
+                        state.selectedAspectRatio.contains("Phone", ignoreCase = true) ||
+                        state.selectedAspectRatio.contains("Mobile", ignoreCase = true) ||
+                        state.selectedAspectRatio.contains("1546") ||
+                        (imgWidth == 1546 && imgHeight == 423) -> "Save Mobile Banner (2560 × 1440 Ready) 📥"
+                        state.selectedAspectRatio.contains("Desktop", ignoreCase = true) ||
+                        (imgWidth == 2560 && imgHeight == 423) -> "Save Desktop Banner (2560 × 1440 Ready) 📥"
+                        else -> "Save Full TV Banner (2560 × 1440) 📥"
                     }
 
                     PrimaryButton(

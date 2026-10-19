@@ -118,7 +118,11 @@ class ImageEditorViewModel : ViewModel() {
         val master = _state.value.masterCanvasBytes ?: _state.value.resultImageBytes ?: return
         viewModelScope.launch {
             try {
-                val cropped = imageProcessingService.cropToYouTubeTarget(master, modeLabel)
+                val cropped = if (modeLabel.contains("Full", ignoreCase = true) || modeLabel.contains("TV", ignoreCase = true)) {
+                    master
+                } else {
+                    imageProcessingService.cropToYouTubeTarget(master, modeLabel)
+                }
                 _state.update {
                     it.copy(
                         resultImageBytes = cropped,
@@ -199,8 +203,8 @@ class ImageEditorViewModel : ViewModel() {
         val promptToSend = if (isYouTubePreset && current.mode == ImageEditorMode.CREATE) {
             "Official YouTube channel banner masterpiece, 2560x1440 widescreen 16:9 aspect ratio. " +
             "CRITICAL SAFE-ZONE COMPOSITION RULES: All primary focal subjects, titles, typography, channel name text, badges, characters, and logos MUST be strictly composed inside the central horizontal mobile safe zone (middle 30% vertical height, centered between 35% and 65% of the canvas height, strictly inside Y: 508 to 931 px, never touching top or bottom edges). " +
-            "The upper 35% and lower 35% of the frame must be continuous atmospheric ambient environment with cinematic depth-of-field blur, dark textures, and subtle champagne gold glowing light rim streaks along the horizontal safe margins. " +
-            "Balanced horizontal layout: left focal emblem or sphere graphic, center bold primary title text and subtitle badge, right high-tech reticle or HUD detail. " +
+            "The upper 35% and lower 35% of the frame must be continuous atmospheric ambient environment extending the scene's theme, colors, lighting, and textures with cinematic depth-of-field blur. " +
+            "Balanced horizontal layout: primary focal subject or title cleanly centered in the safe zone with rich surrounding artwork. " +
             "Masterpiece quality, 8k, professional graphic design, perfect YouTube mobile safe zone alignment: " + current.prompt.trim()
         } else {
             current.prompt
@@ -379,7 +383,11 @@ class ImageEditorViewModel : ViewModel() {
             val bytesToSave = if (targetDevice != null) {
                 val master = _state.value.masterCanvasBytes ?: currentBytes
                 try {
-                    imageProcessingService.cropToYouTubeTarget(master, targetDevice)
+                    if (targetDevice.contains("Full", ignoreCase = true) || targetDevice.contains("TV", ignoreCase = true)) {
+                        master
+                    } else {
+                        imageProcessingService.cropToYouTubeTarget(master, targetDevice)
+                    }
                 } catch (e: Exception) {
                     currentBytes
                 }
