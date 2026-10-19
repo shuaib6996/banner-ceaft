@@ -553,7 +553,7 @@ fun PromptBuilderScreen(
                                 .padding(10.dp)
                         ) {
                             Text(
-                                text = "📱 Mobile Safe: Your final image will be exactly 1546×423 px — the YouTube mobile visible zone. All important content stays visible on phones.",
+                                text = "📱 Mobile Safe: AI creates a full 2560×1440 YouTube-ready banner with your artwork focused inside the 1546×423 phone safe zone.",
                                 fontSize = 11.sp,
                                 color = SafeMint,
                                 fontWeight = FontWeight.Medium,

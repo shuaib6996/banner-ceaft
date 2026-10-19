@@ -243,6 +243,49 @@
           }
         }
       ]
+    },
+    {
+      "id": "tpl_esports_dual_lightning",
+      "name": "Dual Lightning Strike",
+      "category": "Gaming",
+      "description": "Electric cyan & blazing amber dual lightning frame with high-energy central stage for competitive gamers.",
+      "thumbnailAsset": "templates/thumbs/thumb_esports_dual_lightning.png",
+      "backgroundAsset": "templates/bg_esports_dual_lightning.png",
+      "slots": [
+        {
+          "id": "slot_logo",
+          "type": "image",
+          "label": "Gamer Avatar / Crest (Optional)",
+          "required": false,
+          "rect": { "x": 600, "y": 600, "width": 220, "height": 220 }
+        },
+        {
+          "id": "slot_title",
+          "type": "text",
+          "label": "Channel / Gamer Tag",
+          "required": true,
+          "rect": { "x": 840, "y": 590, "width": 880, "height": 130 },
+          "defaultStyle": {
+            "fontSize": 82,
+            "colorHex": "#FFFFFF",
+            "isBold": true,
+            "alignment": "CENTER"
+          }
+        },
+        {
+          "id": "slot_tagline",
+          "type": "text",
+          "label": "Stream Schedule / Tagline",
+          "required": false,
+          "rect": { "x": 840, "y": 735, "width": 880, "height": 85 },
+          "defaultStyle": {
+            "fontSize": 34,
+            "colorHex": "#F59E0B",
+            "isBold": false,
+            "alignment": "CENTER"
+          }
+        }
+      ]
     }
   ]
 }

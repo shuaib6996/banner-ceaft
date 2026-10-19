@@ -21,8 +21,10 @@ data class TemplateCreationState(
     val selectedCategory: String = "All",
     val selectedTemplate: BannerTemplate? = null,
     val slotValues: Map<String, Any> = emptyMap(),
+    val slotShapes: Map<String, String> = emptyMap(),
     val targetDeviceMode: String = "Phone Safe",
     val isRendering: Boolean = false,
+    val isSaving: Boolean = false,
     val masterCanvasBytes: ByteArray? = null,
     val finalRenderedBytes: ByteArray? = null,
     val errorMessage: String? = null
@@ -88,6 +90,7 @@ class TemplateCreationViewModel(application: Application) : AndroidViewModel(app
             it.copy(
                 selectedTemplate = template,
                 slotValues = emptyMap(),
+                slotShapes = emptyMap(),
                 masterCanvasBytes = null,
                 finalRenderedBytes = null,
                 errorMessage = null
@@ -103,6 +106,14 @@ class TemplateCreationViewModel(application: Application) : AndroidViewModel(app
             val updated = current.slotValues.toMutableMap()
             updated[slotId] = value
             current.copy(slotValues = updated, errorMessage = null)
+        }
+    }
+
+    fun setSlotShape(slotId: String, shape: String) {
+        _state.update { current ->
+            val updated = current.slotShapes.toMutableMap()
+            updated[slotId] = shape
+            current.copy(slotShapes = updated)
         }
     }
 
@@ -122,6 +133,7 @@ class TemplateCreationViewModel(application: Application) : AndroidViewModel(app
         _state.update {
             it.copy(
                 slotValues = emptyMap(),
+                slotShapes = emptyMap(),
                 masterCanvasBytes = null,
                 finalRenderedBytes = null,
                 errorMessage = null
@@ -146,11 +158,12 @@ class TemplateCreationViewModel(application: Application) : AndroidViewModel(app
             val bgBitmap = repository.loadAssetBitmap(template.backgroundAsset)
                 ?: throw IllegalStateException("Could not load template background image.")
 
-            // 1. Composite all slots onto the 2560x1440 canvas
+            // 1. Composite all slots onto the 2560x1440 canvas with shape options
             val masterBytes = renderer.renderTemplate(
                 baseBitmap = bgBitmap,
                 template = template,
-                slotValues = current.slotValues
+                slotValues = current.slotValues,
+                slotShapes = current.slotShapes
             )
 
             // 2. Crop/scale to target device (Phone Safe 1546x423, Desktop 2560x423, Full TV 2560x1440)
@@ -173,6 +186,50 @@ class TemplateCreationViewModel(application: Application) : AndroidViewModel(app
                 )
             }
             null
+        }
+    }
+
+    /**
+     * Saves the current template banner directly to the user's gallery using SaveService.
+     */
+    fun saveBannerToGallery(
+        context: Context,
+        targetDevice: String = _state.value.targetDeviceMode,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        if (_state.value.isSaving) return
+
+        viewModelScope.launch {
+            _state.update { it.copy(isSaving = true) }
+            try {
+                val target = YouTubeBannerTarget.fromLabel(targetDevice)
+                val bytesToSave = _state.value.finalRenderedBytes ?: renderFinalBanner(context, targetDevice)
+
+                if (bytesToSave == null || bytesToSave.isEmpty()) {
+                    _state.update { it.copy(isSaving = false) }
+                    onResult(false, "Please fill required slots before saving.")
+                    return@launch
+                }
+
+                val saveService = com.example.data.SaveService(context)
+                val result = saveService.saveToGallery(bytesToSave, "YT Banners")
+                _state.update { it.copy(isSaving = false) }
+
+                when (result) {
+                    is com.example.data.SaveResult.Success -> {
+                        onResult(true, "Saved YouTube Banner (2560 × 1440 - Safe Zone Calibrated) to gallery! 🎉")
+                    }
+                    is com.example.data.SaveResult.PermissionDenied -> {
+                        onResult(false, "Storage permission denied. Enable it in your phone's Settings.")
+                    }
+                    is com.example.data.SaveResult.Failure -> {
+                        onResult(false, result.message)
+                    }
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(isSaving = false) }
+                onResult(false, "Save error: ${e.message}")
+            }
         }
     }
 }

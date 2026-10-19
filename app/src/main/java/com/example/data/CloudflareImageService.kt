@@ -63,6 +63,9 @@ class CloudflareImageService {
      */
     fun extractAccountIdAndEndpoint(baseUrl: String, model: String): Pair<String?, String> {
         val cleanBase = baseUrl.trim()
+            .removeSurrounding("\"")
+            .removeSurrounding("'")
+
         val cleanModel = model.trim().let {
             if (it.isBlank()) DEFAULT_MODEL
             else if (!it.startsWith("@") && !it.startsWith("lucid") && !it.startsWith("phoenix") && it.contains("/")) {
@@ -70,19 +73,30 @@ class CloudflareImageService {
             } else it
         }
 
+        // Clean any enclosing braces/brackets like {ID}, <ID>, [ID] if user entered them
+        val strippedId = cleanBase
+            .trimStart('{', '<', '[', '(', ' ', '"', '\'')
+            .trimEnd('}', '>', ']', ')', ' ', '"', '\'')
+
         // Case A: User entered just the raw Account ID (alphanumeric, no slashes or dots)
-        if (cleanBase.isNotBlank() && !cleanBase.contains("/") && !cleanBase.contains(".")) {
-            val accountId = cleanBase
+        if (strippedId.isNotBlank() && !strippedId.contains("/") && !strippedId.contains(".")) {
+            val accountId = strippedId.replace(Regex("(?i)^account[-_]?id[:= ]*"), "").trim()
             val endpoint = "https://api.cloudflare.com/client/v4/accounts/$accountId/ai/run/$cleanModel"
             return Pair(accountId, endpoint)
         }
 
-        // Case B: URL containing accounts/{ACCOUNT_ID}
+        // Case B: URL containing accounts/{ACCOUNT_ID} or accounts/ACCOUNT_ID
         val accountRegex = Regex("""accounts/([^/]+)""")
         val match = accountRegex.find(cleanBase)
-        val extractedId = match?.groupValues?.get(1)?.takeIf { it != "{ACCOUNT_ID}" }
+        val rawExtracted = match?.groupValues?.get(1)?.trim()
+        val extractedId = rawExtracted
+            ?.trimStart('{', '<', '[', '(', ' ', '"', '\'')
+            ?.trimEnd('}', '>', ']', ')', ' ', '"', '\'')
+            ?.takeIf { !it.equals("ACCOUNT_ID", ignoreCase = true) && it.isNotBlank() }
 
-        val endpoint = if (cleanBase.contains("/ai/run")) {
+        val endpoint = if (extractedId != null) {
+            "https://api.cloudflare.com/client/v4/accounts/$extractedId/ai/run/$cleanModel"
+        } else if (cleanBase.contains("/ai/run")) {
             val prefix = cleanBase.substringBefore("/ai/run") + "/ai/run"
             "$prefix/$cleanModel"
         } else if (cleanBase.contains("/accounts/")) {

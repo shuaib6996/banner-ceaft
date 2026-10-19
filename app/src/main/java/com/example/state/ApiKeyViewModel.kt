@@ -646,9 +646,21 @@ class ApiKeyViewModel(application: Application) : AndroidViewModel(application) 
 
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, errorMessage = null) }
+            val cleanBaseUrl = if (config.providerId == "cloudflare" || config.baseUrl.contains("cloudflare", ignoreCase = true)) {
+                val raw = config.baseUrl.trim()
+                val stripped = raw.trimStart('{', '<', '[', '(', ' ', '"', '\'').trimEnd('}', '>', ']', ')', ' ', '"', '\'')
+                if (stripped.isNotBlank() && !stripped.contains("/") && !stripped.contains(".")) {
+                    stripped.replace(Regex("(?i)^account[-_]?id[:= ]*"), "").trim()
+                } else {
+                    raw.replace(Regex("""accounts/\{+([^/{}]+)\}+"""), "accounts/$1")
+                }
+            } else {
+                config.baseUrl.trim()
+            }
+
             val cleanConfig = config.copy(
                 apiKey = sanitizedKey,
-                baseUrl = config.baseUrl.trim(),
+                baseUrl = cleanBaseUrl,
                 chatModel = config.chatModel.trim(),
                 imageModel = config.imageModel.trim()
             )

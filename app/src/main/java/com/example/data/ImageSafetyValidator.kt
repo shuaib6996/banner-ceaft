@@ -41,6 +41,7 @@ object ImageSafetyValidator {
 
             var blackPixels = 0
             var totalSampled = 0
+            var maxRgb = 0
 
             for (x in 0 until width step stepX) {
                 for (y in 0 until height step stepY) {
@@ -48,6 +49,10 @@ object ImageSafetyValidator {
                     val r = (pixel shr 16) and 0xFF
                     val g = (pixel shr 8) and 0xFF
                     val b = pixel and 0xFF
+
+                    if (r > maxRgb) maxRgb = r
+                    if (g > maxRgb) maxRgb = g
+                    if (b > maxRgb) maxRgb = b
 
                     // Check if RGB values are practically zero (pure black safety mask)
                     if (r <= 6 && g <= 6 && b <= 6) {
@@ -61,9 +66,10 @@ object ImageSafetyValidator {
 
             val blackRatio = blackPixels.toFloat() / totalSampled
 
-            // If more than 95% of pixels are pitch black, this is an AI safety filter blackout
-            if (blackRatio >= 0.95f) {
-                Log.w(TAG, "Blocked black image detected! Black pixel ratio: ${(blackRatio * 100).toInt()}% ($blackPixels / $totalSampled sampled pixels)")
+            // A safety filter blackout is completely black across the entire image (maxRgb <= 12 and blackRatio >= 0.98f)
+            // Legitimate dark themes (e.g. neon, gaming, dark anime) have glowing accents with maxRgb >> 30
+            if (blackRatio >= 0.98f && maxRgb <= 12) {
+                Log.w(TAG, "Blocked black image detected! Black pixel ratio: ${(blackRatio * 100).toInt()}%, maxRgb: $maxRgb")
                 return false
             }
 

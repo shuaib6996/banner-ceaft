@@ -354,11 +354,10 @@ fun ResultScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = when {
-                                    imgWidth == 1546 && imgHeight == 423 -> "Mobile Safe (1546 × 423)"
-                                    imgWidth == 2560 && imgHeight == 423 -> "Desktop Banner (2560 × 423)"
-                                    imgWidth == 2560 && imgHeight == 1440 -> "YouTube Full TV (2560 × 1440)"
-                                    else -> "${currentTarget.title} ($imgWidth × $imgHeight)"
+                                text = when (selectedPreviewMode) {
+                                    "Phone Safe" -> "Phone Safe • YouTube Ready (2560 × 1440)"
+                                    "Desktop" -> "Desktop • YouTube Ready (2560 × 1440)"
+                                    else -> "Full Canvas (2560 × 1440)"
                                 },
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
@@ -367,10 +366,10 @@ fun ResultScreen(
                         }
 
                         Text(
-                            text = "$imgWidth × $imgHeight PNG",
+                            text = "YouTube Studio ✅",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = CoralRed
+                            color = SafeMint
                         )
                     }
 
@@ -426,7 +425,33 @@ fun ResultScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Safe-Zone & YouTube Acceptance Info Pill
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF0F172A).copy(alpha = 0.5f))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = SafeMint,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Safe zone is crisp & centered. Top and bottom are blurred so YouTube accepts your upload 100%!",
+                            fontSize = 11.sp,
+                            color = SlateNeutral,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // Preview Modes Selector Pills (1-Tap real-time target switching)
                     Row(
@@ -465,12 +490,28 @@ fun ResultScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Action Buttons - Download & Save with exact target resolution
+                // Action Buttons - Download & Save with YouTube 2560x1440 compliance
                 PrimaryButton(
-                    text = if (state.isSaving) "Saving to Gallery..." else "Download & Save ${currentTarget.title} ($imgWidth × $imgHeight)",
+                    text = if (state.isSaving) "Saving to Gallery..." else "Download YouTube Banner (2560 × 1440)",
                     enabled = !state.isSaving,
                     onClick = {
                         bannerViewModel.saveBanner(context, selectedPreviewMode) { success, message ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar(message)
+                            }
+                        }
+                    },
+                    icon = Icons.Default.Download
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Optional Raw Safe-Zone Slice export (1546x423 for Discord / Twitter headers)
+                SecondaryButton(
+                    text = "Download Raw Mobile Slice (1546 × 423)",
+                    enabled = !state.isSaving,
+                    onClick = {
+                        bannerViewModel.saveExactSlice(context, selectedPreviewMode) { success, message ->
                             scope.launch {
                                 snackbarHostState.showSnackbar(message)
                             }

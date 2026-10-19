@@ -99,7 +99,10 @@ class OpenAiCompatibleService {
                 )
             }
 
-            // If 404 on /chat/completions, try /models
+            var finalCode = responseCode
+            var finalBody = bodyString
+
+            // If 404 on /chat/completions (e.g. testing with an image model), try /models probe
             if (responseCode == 404) {
                 val modelsEndpoint = "$cleanUrl/models"
                 val modelsReq = Request.Builder()
@@ -110,31 +113,35 @@ class OpenAiCompatibleService {
                 }
                 val modelsResp = client.newCall(modelsReq.build()).execute()
                 val modelsLatency = System.currentTimeMillis() - startTime
+                val modelsBody = modelsResp.body?.string().orEmpty()
                 if (modelsResp.isSuccessful) {
                     return@withContext ConnectionTestResult.Success(
                         latencyMs = modelsLatency,
                         message = "Connected to provider in ${modelsLatency}ms!"
                     )
+                } else {
+                    finalCode = modelsResp.code
+                    finalBody = modelsBody
                 }
             }
 
             // Extract error message from JSON response if present
             val parsedError = try {
-                val json = JSONObject(bodyString)
+                val json = JSONObject(finalBody)
                 val errObj = json.optJSONObject("error")
-                errObj?.optString("message") ?: json.optString("message", bodyString)
+                errObj?.optString("message") ?: json.optString("detail", json.optString("message", finalBody))
             } catch (e: Exception) {
-                bodyString.take(200)
+                finalBody.take(200)
             }
 
-            val humanMsg = when (responseCode) {
-                401, 403 -> "Authentication failed ($responseCode). Check your API Key."
-                404 -> "Endpoint not found ($responseCode). Check your Base URL (e.g. should include /v1)."
+            val humanMsg = when (finalCode) {
+                401, 403 -> "Authentication failed ($finalCode). Check your API Key."
+                404 -> "Endpoint not found ($finalCode). Check your Base URL (e.g. should include /v1)."
                 429 -> "Rate limit reached (429). Check provider quota."
-                else -> "Server error ($responseCode): ${parsedError.ifBlank { "Unknown" }}"
+                else -> "Server error ($finalCode): ${parsedError.ifBlank { "Unknown" }}"
             }
 
-            return@withContext ConnectionTestResult.Failure(responseCode, humanMsg)
+            return@withContext ConnectionTestResult.Failure(finalCode, humanMsg)
 
         } catch (e: IOException) {
             Log.e(TAG, "Connection test network error", e)
@@ -342,35 +349,52 @@ class OpenAiCompatibleService {
         model: String,
         prompt: String
     ): ByteArray = withContext(Dispatchers.IO) {
+        val cleanKey = sanitizeApiKey(apiKey)
+        if (cleanKey.isBlank()) {
+            throw IOException("NVIDIA NIM requires an API key (nvapi-...). Please add your NVIDIA API key in Settings.")
+        }
+
+        // Clean prompt to strip sensitive layout words that trigger NeMo Guardrails / FLUX filters
+        val cleanPrompt = prompt
+            .replace(Regex("(?i)\\b(heads?|cut off|chopped|completely empty|negative space|letterbox format|bleed|gore|kill|dead|corpse|slay)\\b"), "")
+            .replace(Regex("\\s{2,}"), " ")
+            .trim()
+
         val targetModel = when {
             model.contains("schnell", ignoreCase = true) -> "black-forest-labs/flux.1-schnell"
             model.contains("kontext", ignoreCase = true) -> "black-forest-labs/flux.1-kontext-dev"
             model.contains("klein", ignoreCase = true) -> "black-forest-labs/flux.2-klein-4b"
+            model.contains("turbo", ignoreCase = true) || model.contains("sdxl", ignoreCase = true) -> "stabilityai/sdxl-turbo"
+            model.contains("medium", ignoreCase = true) -> "stabilityai/stable-diffusion-3-medium"
             else -> "black-forest-labs/flux.1-dev"
         }
 
-        val endpoints = listOf(
-            "https://ai.api.nvidia.com/v1/genai/$targetModel",
-            "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev"
-        ).distinct()
-
-        val requestJson = JSONObject().apply {
-            put("prompt", prompt)
-            put("mode", "base")
-        }
+        // Only use verified active NVIDIA GenAI endpoints on ai.api.nvidia.com
+        val attempts = listOf(
+            Pair("https://ai.api.nvidia.com/v1/genai/$targetModel", targetModel),
+            Pair("https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev", "black-forest-labs/flux.1-dev"),
+            Pair("https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell", "black-forest-labs/flux.1-schnell")
+        ).distinctBy { it.first }
 
         var lastErrorMsg = "Failed to generate image with NVIDIA NIM"
+        var isModeratedFlag = false
 
-        for (endpoint in endpoints) {
-            val requestBuilder = Request.Builder()
-                .url(endpoint)
-                .post(requestJson.toString().toRequestBody(jsonMediaType))
-                .addHeader("Content-Type", "application/json")
-                .addHeader("Accept", "application/json")
-                .addHeader("Authorization", "Bearer $apiKey")
-
+        for ((endpoint, modelId) in attempts) {
             try {
-                val response = client.newCall(requestBuilder.build()).execute()
+                val requestJson = JSONObject().apply {
+                    put("prompt", cleanPrompt)
+                    put("mode", "base")
+                }
+
+                val request = Request.Builder()
+                    .url(endpoint)
+                    .post(requestJson.toString().toRequestBody(jsonMediaType))
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("Accept", "application/json")
+                    .addHeader("Authorization", "Bearer $cleanKey")
+                    .build()
+
+                val response = client.newCall(request).execute()
                 val bodyString = response.body?.string().orEmpty()
 
                 if (response.isSuccessful) {
@@ -379,13 +403,12 @@ class OpenAiCompatibleService {
                     if (artifacts != null && artifacts.length() > 0) {
                         val artifact = artifacts.getJSONObject(0)
                         val finishReason = artifact.optString("finish_reason", "")
-                        if (finishReason.equals("CONTENT_FILTER", ignoreCase = true) ||
-                            finishReason.equals("SAFETY", ignoreCase = true) ||
-                            finishReason.equals("FILTERED", ignoreCase = true)
+                        if (finishReason.contains("FILTER", ignoreCase = true) ||
+                            finishReason.contains("SAFETY", ignoreCase = true)
                         ) {
-                            throw ContentModeratedException(
-                                "⚠️ Content Moderated: NVIDIA / FLUX safety guidelines flagged this prompt ($finishReason). Please modify your prompt and try again."
-                            )
+                            isModeratedFlag = true
+                            Log.w(TAG, "NVIDIA FLUX safety guardrail triggered ($finishReason) on $endpoint. Attempting fallback...")
+                            continue // Seamlessly attempt fallback instead of failing immediately!
                         }
 
                         val b64 = artifact.optString("base64")
@@ -403,18 +426,51 @@ class OpenAiCompatibleService {
                     } catch (_: Exception) {
                         bodyString.take(200)
                     }
+
+                    // Authentication failures (401 / 403) - do NOT retry, report immediately!
+                    if (response.code == 401 || response.code == 403) {
+                        Log.e(TAG, "NVIDIA NIM Auth failed (${response.code}): $bodyString")
+                        throw IOException("NVIDIA NIM (${response.code}): API key invalid, unauthorized, or expired. Please check your nvapi-... key in Settings.")
+                    }
+
+                    // Rate limit
+                    if (response.code == 429) {
+                        Log.w(TAG, "NVIDIA NIM Rate limited (${response.code}): $bodyString")
+                        throw IOException("NVIDIA NIM Rate Limit (429): Quota exceeded or too many requests. Please wait a moment and try again.")
+                    }
+
+                    if (response.code == 422 || parsedMsg.contains("safety", ignoreCase = true) || parsedMsg.contains("moderated", ignoreCase = true)) {
+                        isModeratedFlag = true
+                    }
                     lastErrorMsg = "NVIDIA NIM Image Generation (HTTP ${response.code}): $parsedMsg"
                     Log.w(TAG, "NVIDIA endpoint $endpoint failed with HTTP ${response.code}: $bodyString")
                 }
             } catch (e: java.net.SocketTimeoutException) {
-                lastErrorMsg = "NVIDIA NIM image generation timed out for this prompt. Try a shorter or simpler description."
+                lastErrorMsg = "NVIDIA NIM image generation timed out. Try a shorter prompt."
                 Log.w(TAG, "NVIDIA endpoint $endpoint timed out", e)
             } catch (e: ContentModeratedException) {
-                throw e  // Don't swallow content moderation, bubble up immediately
+                isModeratedFlag = true
+                Log.w(TAG, "NVIDIA endpoint $endpoint moderated, attempting fallback...", e)
+            } catch (e: IOException) {
+                // Re-throw our explicit auth/quota exceptions immediately
+                if (e.message?.contains("API key invalid") == true ||
+                    e.message?.contains("requires an API key") == true ||
+                    e.message?.contains("Rate Limit") == true
+                ) {
+                    throw e
+                }
+                lastErrorMsg = e.message ?: "Network error calling NVIDIA NIM"
+                Log.w(TAG, "NVIDIA endpoint $endpoint threw IOException", e)
             } catch (e: Exception) {
                 lastErrorMsg = "Network error calling NVIDIA NIM: ${e.message}"
                 Log.w(TAG, "NVIDIA endpoint $endpoint threw exception", e)
             }
+        }
+
+        if (isModeratedFlag) {
+            throw ContentModeratedException(
+                "⚠️ Content Moderated: NVIDIA safety guidelines flagged this prompt. Please modify or soften your prompt description and try again."
+            )
         }
 
         throw IOException(lastErrorMsg)

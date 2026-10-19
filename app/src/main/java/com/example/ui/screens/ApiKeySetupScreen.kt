@@ -109,8 +109,23 @@ fun ApiKeySetupScreen(
     var providerName by remember(currentProfileId, currentConfig.providerName, state.activeTab) {
         mutableStateOf(currentConfig.providerName)
     }
+    fun extractCleanAccountId(url: String): String {
+        val trimmed = url.trim().removeSurrounding("\"").removeSurrounding("'")
+        val stripped = trimmed.trimStart('{', '<', '[', '(').trimEnd('}', '>', ']', ')')
+        if (stripped.isNotBlank() && !stripped.contains("/") && !stripped.contains(".")) {
+            return stripped.replace(Regex("(?i)^account[-_]?id[:= ]*"), "").trim()
+        }
+        val match = Regex("""accounts/([^/]+)""").find(trimmed)
+        val extracted = match?.groupValues?.get(1)?.trim()
+            ?.trimStart('{', '<', '[', '(')?.trimEnd('}', '>', ']', ')')?.trim()
+        return if (extracted != null && !extracted.equals("ACCOUNT_ID", ignoreCase = true)) extracted else ""
+    }
+
     var baseUrl by remember(currentProfileId, currentConfig.baseUrl, state.activeTab) {
         mutableStateOf(currentConfig.baseUrl)
+    }
+    var cloudflareAccountId by remember(currentProfileId, currentConfig.baseUrl, state.activeTab) {
+        mutableStateOf(extractCleanAccountId(currentConfig.baseUrl))
     }
     var inputKey by remember(currentProfileId, currentConfig.apiKey, state.activeTab) {
         mutableStateOf(currentConfig.apiKey)
@@ -136,6 +151,7 @@ fun ApiKeySetupScreen(
         selectedPresetId = currentConfig.providerId
         providerName = currentConfig.providerName
         baseUrl = currentConfig.baseUrl
+        cloudflareAccountId = extractCleanAccountId(currentConfig.baseUrl)
         inputKey = currentConfig.apiKey
         chatModel = currentConfig.chatModel
         imageModel = currentConfig.imageModel
@@ -571,6 +587,10 @@ fun ApiKeySetupScreen(
                                         val clip = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
                                         if (!clip.isNullOrBlank()) {
                                             baseUrl = clip.trim()
+                                            val extracted = extractCleanAccountId(clip)
+                                            if (extracted.isNotBlank()) {
+                                                cloudflareAccountId = extracted
+                                            }
                                         }
                                     } catch (_: Exception) {}
                                 }
@@ -597,7 +617,13 @@ fun ApiKeySetupScreen(
                 Spacer(modifier = Modifier.height(4.dp))
                 InsetTextField(
                     value = baseUrl,
-                    onValueChange = { baseUrl = it },
+                    onValueChange = { input ->
+                        baseUrl = input
+                        val extracted = extractCleanAccountId(input)
+                        if (extracted.isNotBlank()) {
+                            cloudflareAccountId = extracted
+                        }
+                    },
                     placeholder = if (selectedPresetId == "gemini") {
                         "https://generativelanguage.googleapis.com"
                     } else if (selectedPresetId == "cloudflare") {
@@ -608,37 +634,132 @@ fun ApiKeySetupScreen(
                     leadingIcon = Icons.Default.Link
                 )
 
+                // Dedicated Section: Cloudflare Account ID (Right below Base URL)
                 if (selectedPresetId == "cloudflare" || baseUrl.contains("cloudflare", ignoreCase = true)) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    if (baseUrl.contains("{ACCOUNT_ID}")) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(CoralRed.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
-                                .border(1.dp, CoralRed.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "⚠️ Replace {ACCOUNT_ID} above with your Cloudflare Account ID (or just enter your raw Account ID in this field).",
-                                color = CoralRed,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .neumorphicInset(shape = RoundedCornerShape(14.dp))
+                            .padding(12.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "🆔",
+                                        fontSize = 13.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Cloudflare Account ID",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CoralRed
+                                    )
+                                }
+
+                                // Quick Paste Button for Account ID
+                                Box(
+                                    modifier = Modifier
+                                        .neumorphicConvex(shape = RoundedCornerShape(8.dp), elevation = 2.dp)
+                                        .clickable {
+                                            try {
+                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                val clip = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
+                                                if (!clip.isNullOrBlank()) {
+                                                    val cleanClip = extractCleanAccountId(clip)
+                                                    if (cleanClip.isNotBlank()) {
+                                                        cloudflareAccountId = cleanClip
+                                                        baseUrl = "https://api.cloudflare.com/client/v4/accounts/$cleanClip/ai/run/"
+                                                        inlineErrorText = null
+                                                    }
+                                                }
+                                            } catch (_: Exception) {}
+                                        }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentPaste,
+                                            contentDescription = "Paste",
+                                            tint = CoralRed,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Paste ID",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CoralRed
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            InsetTextField(
+                                value = cloudflareAccountId,
+                                onValueChange = { input ->
+                                    val cleanInput = input.trimStart('{', '<', '[', '(')
+                                        .trimEnd('}', '>', ']', ')')
+                                        .trim()
+                                    cloudflareAccountId = cleanInput
+                                    if (cleanInput.isNotBlank()) {
+                                        baseUrl = "https://api.cloudflare.com/client/v4/accounts/$cleanInput/ai/run/"
+                                    }
+                                    inlineErrorText = null
+                                },
+                                placeholder = "32-hex Account ID (e.g. 5b8f32c964ddbb7630b784f8dff71277)",
+                                leadingIcon = Icons.Default.Key
                             )
-                        }
-                    } else if (baseUrl.isNotBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(SafeMint.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
-                                .border(1.dp, SafeMint.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "✓ Cloudflare Account ID configured.",
-                                color = SafeMint,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // Status badge
+                            if (cloudflareAccountId.length == 32 && !cloudflareAccountId.contains(" ")) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(SafeMint.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                        .border(1.dp, SafeMint.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                                ) {
+                                    Text(
+                                        text = "✓ Valid 32-character Account ID (Synced with Base URL)",
+                                        color = SafeMint,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            } else if (cloudflareAccountId.isNotBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(CoralRed.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
+                                        .border(1.dp, CoralRed.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                                ) {
+                                    Text(
+                                        text = "Account ID is ${cloudflareAccountId.length}/32 characters. Do not include curly braces { }.",
+                                        color = CoralRed,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "💡 Find your Account ID in Cloudflare Dashboard: Overview (right sidebar) → Account ID.",
+                                    fontSize = 10.sp,
+                                    color = SlateNeutral,
+                                    lineHeight = 14.sp
+                                )
+                            }
                         }
                     }
                 }

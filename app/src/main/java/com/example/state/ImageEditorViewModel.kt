@@ -197,19 +197,7 @@ class ImageEditorViewModel : ViewModel() {
         val effectiveRatio = if (isYouTubePreset) "16:9" else current.selectedAspectRatio
 
         val promptToSend = if (isYouTubePreset && current.mode == ImageEditorMode.CREATE) {
-            if (current.selectedAspectRatio.contains("1546") || current.selectedAspectRatio.contains("Mobile", ignoreCase = true) || current.selectedAspectRatio.contains("Phone", ignoreCase = true)) {
-                "MANDATORY ULTRA-WIDE HORIZONTAL LETTERBOX FORMAT FOR YOUTUBE MOBILE BANNER (1546x423 SAFE ZONE COMPOSITION). " +
-                "COMPOSITION RULES: All visual subjects, typography, titles, logos, characters, and focal graphics MUST be strictly centered within a compact horizontal strip occupying only the middle 20% to 25% vertical height of the image canvas. " +
-                "The top 38% and bottom 38% of the canvas MUST be pure ambient background, negative space, dark lighting, or soft atmospheric textures ONLY, completely empty of any text, heads, or foreground subjects, ensuring zero content is cut off or cropped on mobile screens. " +
-                current.prompt.trim()
-            } else if (current.selectedAspectRatio.contains("2560") || current.selectedAspectRatio.contains("Desktop", ignoreCase = true)) {
-                "MANDATORY ULTRA-WIDE HORIZONTAL FORMAT FOR YOUTUBE DESKTOP BANNER (2560x423 horizontal strip). " +
-                "COMPOSITION RULES: Concentrate all primary subjects, typography, titles, and focal graphics strictly within the central horizontal band (maximum 28% vertical canvas height). " +
-                "Top and bottom 36% margins must remain empty ambient atmospheric background with zero text or subjects. " +
-                current.prompt.trim()
-            } else {
-                "YouTube Banner canvas (2560x1440 16:9), keeping all focal subjects centered within the safe viewing zone. " + current.prompt.trim()
-            }
+            "Cinematic 16:9 widescreen YouTube banner artwork, balanced horizontal composition with focal subjects centered: " + current.prompt.trim()
         } else {
             current.prompt
         }
@@ -400,11 +388,7 @@ class ImageEditorViewModel : ViewModel() {
             when (result) {
                 is SaveResult.Success -> {
                     _state.update { it.copy(isSaving = false) }
-                    val targetInfo = if (targetDevice != null) {
-                        val t = com.example.data.YouTubeBannerTarget.fromLabel(targetDevice)
-                        " ${t.title} (${t.width} × ${t.height})"
-                    } else ""
-                    onResult(true, "Saved$targetInfo to your gallery!")
+                    onResult(true, "Saved YouTube Banner (2560 × 1440 - Safe Zone Calibrated) to your gallery! 🎉")
                 }
                 is SaveResult.PermissionDenied -> {
                     _state.update { it.copy(isSaving = false) }

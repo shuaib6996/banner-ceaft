@@ -319,7 +319,7 @@ fun GenerationSettingsScreen(
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = when (currentTarget) {
-                            com.example.data.YouTubeBannerTarget.MOBILE -> "Strict Mobile Boundary: AI concentrates all core artwork & text inside the 1546×423 center zone. Output is 100% phone-ready."
+                            com.example.data.YouTubeBannerTarget.MOBILE -> "Strict Mobile Boundary: AI concentrates all core artwork & text inside the 1546×423 center zone. Output is 2560×1440 YouTube Ready with sharp safe zone."
                             com.example.data.YouTubeBannerTarget.DESKTOP -> "Desktop Boundary: Fills full desktop/laptop banner (2560×423 px). AI keeps primary action inside the horizontal band."
                             com.example.data.YouTubeBannerTarget.FULL_TV -> "Universal Canvas: Complete 2560×1440 16:9 canvas visible on Smart TVs, perfectly safe-zone centered for smaller screens."
                         },

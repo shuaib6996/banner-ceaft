@@ -213,22 +213,14 @@ class BannerCreationViewModel : ViewModel() {
 
         val promptParts = mutableListOf<String>()
 
-        // 1. Mandatory Safe Boundary & Format Guidance - PREPENDED AT START so AI diffusion engines frame the shot first!
+        // 1. Clean Widescreen Framing Guidance (Safe, artistic, zero safety trigger words)
         val targetMode = current.targetDeviceMode
         if (targetMode.contains("mobile", ignoreCase = true) || targetMode.contains("phone", ignoreCase = true) || targetMode.contains("1546", ignoreCase = true)) {
-            promptParts.add(
-                "MANDATORY ULTRA-WIDE HORIZONTAL LETTERBOX FORMAT FOR YOUTUBE MOBILE BANNER (1546x423 SAFE ZONE COMPOSITION). " +
-                "COMPOSITION RULES: All visual subjects, typography, titles, logos, characters, and focal graphics MUST be strictly centered within a compact horizontal strip occupying only the middle 20% to 25% vertical height of the image canvas. " +
-                "The top 38% and bottom 38% of the canvas MUST be pure ambient background, negative space, dark lighting, or soft atmospheric textures ONLY, completely empty of any text, heads, or foreground subjects, ensuring zero content is cut off or cropped on mobile screens."
-            )
+            promptParts.add("Cinematic widescreen YouTube channel banner artwork, balanced horizontal composition with focal subjects centered.")
         } else if (targetMode.contains("desktop", ignoreCase = true)) {
-            promptParts.add(
-                "MANDATORY ULTRA-WIDE HORIZONTAL FORMAT FOR YOUTUBE DESKTOP BANNER (2560x423 horizontal strip). " +
-                "COMPOSITION RULES: Concentrate all primary subjects, typography, titles, and focal graphics strictly within the central horizontal band (maximum 28% vertical canvas height). " +
-                "Top and bottom 36% margins must remain empty ambient atmospheric background with zero text or subjects."
-            )
+            promptParts.add("Cinematic widescreen desktop banner artwork, wide panoramic composition.")
         } else {
-            promptParts.add("YouTube Banner canvas (2560x1440 16:9), with all primary subjects centered within the safe viewing zone.")
+            promptParts.add("Cinematic 16:9 widescreen YouTube banner artwork, centered composition.")
         }
 
         promptParts.add(base)
@@ -420,7 +412,7 @@ class BannerCreationViewModel : ViewModel() {
                                 saveErrorMessage = null
                             )
                         }
-                        onResult(true, "Saved ${target.title} banner (${target.width} × ${target.height}) to gallery!")
+                        onResult(true, "Saved YouTube Banner (2560 × 1440 - Safe Zone Calibrated) to gallery! 🎉")
                     }
                     is SaveResult.PermissionDenied -> {
                         val msg = "Photo access is turned off for this app. Enable it in your phone's Settings to save banners."
@@ -450,6 +442,51 @@ class BannerCreationViewModel : ViewModel() {
                         saveErrorMessage = msg
                     )
                 }
+                onResult(false, msg)
+            }
+        }
+    }
+
+    /**
+     * Saves raw isolated slice (e.g. 1546x423 for mobile) for Discord / Twitter headers.
+     */
+    fun saveExactSlice(context: Context, mode: String? = null, onResult: (Boolean, String) -> Unit) {
+        val currentFinal = _state.value.finalImageBytes
+        val master = _state.value.masterCanvasBytes
+            ?: _state.value.processedImageBytes
+            ?: _state.value.generatedImageBytes
+            ?: currentFinal
+
+        if (master == null || master.isEmpty()) return
+
+        val effectiveDevice = mode ?: _state.value.targetDeviceMode
+        val target = com.example.data.YouTubeBannerTarget.fromLabel(effectiveDevice)
+
+        viewModelScope.launch {
+            _state.update { it.copy(isSaving = true, saveErrorMessage = null) }
+            try {
+                val sliceBytes = imageProcessingService.cropToExactSlice(master, target)
+                val saveService = SaveService(context)
+                val result = saveService.saveToGallery(sliceBytes, "YT Banners")
+
+                when (result) {
+                    is SaveResult.Success -> {
+                        _state.update { it.copy(isSaving = false) }
+                        onResult(true, "Saved raw ${target.width} × ${target.height} slice to gallery!")
+                    }
+                    is SaveResult.PermissionDenied -> {
+                        val msg = "Photo access is turned off for this app. Enable it in Settings."
+                        _state.update { it.copy(isSaving = false, saveErrorMessage = msg) }
+                        onResult(false, msg)
+                    }
+                    is SaveResult.Failure -> {
+                        _state.update { it.copy(isSaving = false, saveErrorMessage = result.message) }
+                        onResult(false, result.message)
+                    }
+                }
+            } catch (e: Exception) {
+                val msg = "Error saving slice: ${e.message}"
+                _state.update { it.copy(isSaving = false, saveErrorMessage = msg) }
                 onResult(false, msg)
             }
         }
@@ -856,6 +893,13 @@ class BannerCreationViewModel : ViewModel() {
 
         // Remove verbose layout instructions that image models ignore anyway
         val boilerplatePatterns = listOf(
+            "MANDATORY ULTRA-WIDE HORIZONTAL LETTERBOX FORMAT[^.]*\\.?",
+            "MANDATORY ULTRA-WIDE HORIZONTAL FORMAT[^.]*\\.?",
+            "COMPOSITION RULES:[^.]*\\.?",
+            "The top \\d+% and bottom \\d+%[^.]*\\.?",
+            "Top and bottom \\d+% margins[^.]*\\.?",
+            "completely empty of any text[^.]*\\.?",
+            "ensuring zero content is cut off[^.]*\\.?",
             "Please leave the [\\w-]+ area simple and uncluttered\\.?",
             "Keep the [\\w\\s-]+ area simple[^.]*\\.?",
             "Keep the [\\w\\s-]+ simple for an avatar logo\\.?",

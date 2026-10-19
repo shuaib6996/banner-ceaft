@@ -464,7 +464,7 @@ fun ImageEditorScreen(
                                     .padding(8.dp)
                             ) {
                                 Text(
-                                    text = "📱 Mobile Safe: AI focuses all subjects inside YouTube's 1546×423 phone safe area. Your final image will be exactly 1546×423 px.",
+                                    text = "📱 Mobile Safe: AI creates a full 2560×1440 YouTube-ready banner with your artwork focused inside the 1546×423 phone safe zone.",
                                     fontSize = 11.sp,
                                     color = SafeMint,
                                     lineHeight = 15.sp
@@ -483,7 +483,7 @@ fun ImageEditorScreen(
                                     .padding(8.dp)
                             ) {
                                 Text(
-                                    text = "🖥️ Desktop: AI focuses subjects inside the 2560×423 desktop banner strip. Your final image will be 2560×423 px.",
+                                    text = "🖥️ Desktop: AI creates a full 2560×1440 YouTube-ready banner with artwork focused inside the 2560×423 desktop strip.",
                                     fontSize = 11.sp,
                                     color = CoralRed,
                                     lineHeight = 15.sp

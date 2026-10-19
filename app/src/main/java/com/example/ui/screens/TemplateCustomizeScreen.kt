@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -71,9 +72,12 @@ import com.example.data.TemplateSlot
 import com.example.data.TemplateSlotType
 import com.example.data.YouTubeBannerTarget
 import com.example.state.TemplateCreationViewModel
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
 import com.example.ui.components.InsetTextField
 import com.example.ui.components.NeumorphicCard
 import com.example.ui.components.PrimaryButton
+import com.example.ui.components.SecondaryButton
 import com.example.ui.components.ScreenHeader
 import com.example.ui.theme.CoralRed
 import com.example.ui.theme.SafeMint
@@ -200,9 +204,28 @@ fun TemplateCustomizeScreen(
                 Column {
                     val currentTarget = YouTubeBannerTarget.fromLabel(state.targetDeviceMode)
 
+                    // 1. Direct Save & Download to Phone Gallery
                     PrimaryButton(
-                        text = if (state.isRendering) "Compositing Banner..." else "✨ Create Banner (${currentTarget.title})",
-                        enabled = state.isReadyToRender && !state.isRendering,
+                        text = if (state.isSaving) "Saving to Gallery..."
+                               else if (state.isRendering) "Compositing Banner..."
+                               else "📥 Download YouTube Banner (2560 × 1440)",
+                        enabled = state.isReadyToRender && !state.isSaving && !state.isRendering,
+                        onClick = {
+                            viewModel.saveBannerToGallery(context, state.targetDeviceMode) { success, message ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(message)
+                                }
+                            }
+                        },
+                        icon = Icons.Default.Download
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 2. Open in Studio / Advanced View
+                    SecondaryButton(
+                        text = "✨ Open in Studio / Advanced View ›",
+                        enabled = state.isReadyToRender && !state.isRendering && !state.isSaving,
                         onClick = {
                             scope.launch {
                                 val resultBytes = viewModel.renderFinalBanner(context)
@@ -223,7 +246,7 @@ fun TemplateCustomizeScreen(
                         Spacer(modifier = Modifier.height(6.dp))
                         val missingSlots = template.slots.filter { it.required && (state.slotValues[it.id] as? String).isNullOrBlank() }
                         Text(
-                            text = "Fill required slot: ${missingSlots.joinToString { it.label }}",
+                            text = "Fill required: ${missingSlots.joinToString { it.label }}",
                             fontSize = 11.sp,
                             color = CoralRed,
                             fontWeight = FontWeight.SemiBold,
@@ -296,9 +319,18 @@ fun TemplateCustomizeScreen(
                     // Tappable Slot Overlays positioned precisely at their canvas coordinates
                     template.slots.forEach { slot ->
                         val slotLeft = scaleX * slot.rect.x
-                        val slotTop = scaleY * slot.rect.y
+                        val rawHeight = scaleY * slot.rect.height
+                        val minTextHeight = 28.dp
+                        val isText = slot.type == TemplateSlotType.TEXT
+
+                        // Protect text slots from being crushed to tiny dots
+                        val displayHeight = if (isText) maxOf(rawHeight, minTextHeight) else rawHeight
+                        val adjustedTop = if (isText && rawHeight < minTextHeight) {
+                            scaleY * slot.rect.y - (minTextHeight - rawHeight) / 2f
+                        } else {
+                            scaleY * slot.rect.y
+                        }
                         val slotWidth = scaleX * slot.rect.width
-                        val slotHeight = scaleY * slot.rect.height
 
                         val rawValue = state.slotValues[slot.id]
                         val isFilled = when (slot.type) {
@@ -306,21 +338,30 @@ fun TemplateCustomizeScreen(
                             TemplateSlotType.IMAGE -> (rawValue as? ByteArray)?.isNotEmpty() == true
                         }
 
+                        val currentShape = state.slotShapes[slot.id] ?: "CIRCLE"
+
                         Box(
                             modifier = Modifier
-                                .offset(x = slotLeft, y = slotTop)
-                                .size(width = slotWidth, height = slotHeight)
-                                .clip(RoundedCornerShape(6.dp))
+                                .offset(x = slotLeft, y = adjustedTop)
+                                .size(width = slotWidth, height = displayHeight)
+                                .then(
+                                    if (slot.type == TemplateSlotType.IMAGE && currentShape == "CIRCLE") {
+                                        Modifier.clip(CircleShape)
+                                    } else {
+                                        Modifier.clip(RoundedCornerShape(6.dp))
+                                    }
+                                )
                                 .then(
                                     if (isFilled) {
-                                        Modifier.background(Color.Black.copy(alpha = 0.25f))
+                                        if (isText) Modifier.background(Color.Black.copy(alpha = 0.15f))
+                                        else Modifier.background(Color.Black.copy(alpha = 0.25f))
                                     } else if (slot.required) {
                                         Modifier
-                                            .border(1.5.dp, CoralRed, RoundedCornerShape(6.dp))
+                                            .border(1.5.dp, CoralRed, if (slot.type == TemplateSlotType.IMAGE && currentShape == "CIRCLE") CircleShape else RoundedCornerShape(6.dp))
                                             .background(CoralRed.copy(alpha = 0.15f))
                                     } else {
                                         Modifier
-                                            .border(1.dp, SafeMint, RoundedCornerShape(6.dp))
+                                            .border(1.dp, SafeMint, if (slot.type == TemplateSlotType.IMAGE && currentShape == "CIRCLE") CircleShape else RoundedCornerShape(6.dp))
                                             .background(SafeMint.copy(alpha = 0.12f))
                                     }
                                 )
@@ -342,25 +383,46 @@ fun TemplateCustomizeScreen(
                         ) {
                             if (slot.type == TemplateSlotType.TEXT) {
                                 val textContent = (rawValue as? String).orEmpty()
+                                val textColor = try {
+                                    Color(android.graphics.Color.parseColor(slot.defaultStyle?.colorHex ?: "#FFFFFF"))
+                                } catch (e: Exception) {
+                                    Color.White
+                                }
+                                val textAlign = when (slot.defaultStyle?.alignment) {
+                                    "LEFT" -> TextAlign.Start
+                                    "RIGHT" -> TextAlign.End
+                                    else -> TextAlign.Center
+                                }
+                                val baseSize = (slot.defaultStyle?.fontSize ?: 64f) * scaleY.value * 0.92f
+                                val fontSp = baseSize.coerceIn(10f, 14f).sp
+
                                 if (textContent.isNotBlank()) {
-                                    val textColor = try {
-                                        Color(android.graphics.Color.parseColor(slot.defaultStyle?.colorHex ?: "#FFFFFF"))
-                                    } catch (e: Exception) {
-                                        Color.White
-                                    }
                                     Text(
                                         text = textContent,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (slot.defaultStyle?.isBold != false) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = fontSp,
+                                        fontWeight = if (slot.defaultStyle?.isBold != false) FontWeight.ExtraBold else FontWeight.Normal,
                                         color = textColor,
+                                        textAlign = textAlign,
+                                        style = androidx.compose.ui.text.TextStyle(
+                                            shadow = Shadow(
+                                                color = Color.Black.copy(alpha = 0.9f),
+                                                blurRadius = 6f,
+                                                offset = Offset(1f, 1f)
+                                            )
+                                        ),
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.fillMaxWidth()
                                     )
                                 } else {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
                                         Text(
                                             text = if (slot.required) "✏️ ${slot.label} *" else "✏️ ${slot.label}",
-                                            fontSize = 9.sp,
+                                            fontSize = 9.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = if (slot.required) CoralRed else SafeMint,
                                             maxLines = 1,
@@ -382,15 +444,24 @@ fun TemplateCustomizeScreen(
                                         Image(
                                             bitmap = slotBitmap.asImageBitmap(),
                                             contentDescription = slot.label,
-                                            contentScale = ContentScale.Fit,
-                                            modifier = Modifier.fillMaxSize()
+                                            contentScale = if (currentShape == "CIRCLE") ContentScale.Crop else ContentScale.Fit,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .then(
+                                                    if (currentShape == "CIRCLE") Modifier.clip(CircleShape)
+                                                    else Modifier.clip(RoundedCornerShape(4.dp))
+                                                )
                                         )
                                     }
                                 } else {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
                                         Text(
                                             text = if (slot.required) "📷 ${slot.label} *" else "📷 ${slot.label}",
-                                            fontSize = 9.sp,
+                                            fontSize = 9.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = if (slot.required) CoralRed else SafeMint,
                                             maxLines = 1,
@@ -491,106 +562,182 @@ fun TemplateCustomizeScreen(
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
                         .neumorphicConvex(shape = RoundedCornerShape(16.dp), elevation = 3.dp)
-                        .clickable {
-                            if (slot.type == TemplateSlotType.TEXT) {
-                                editingTextSlot = slot
-                                textInputValue = (rawValue as? String).orEmpty()
-                            } else {
-                                activeImageSlotId = slot.id
-                                photoPickerLauncher.launch(
-                                    androidx.activity.result.PickVisualMediaRequest(
-                                        ActivityResultContracts.PickVisualMedia.ImageOnly
-                                    )
-                                )
-                            }
-                        }
                         .padding(14.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Column {
                         Row(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (slot.type == TemplateSlotType.TEXT) {
+                                        editingTextSlot = slot
+                                        textInputValue = (rawValue as? String).orEmpty()
+                                    } else {
+                                        activeImageSlotId = slot.id
+                                        photoPickerLauncher.launch(
+                                            androidx.activity.result.PickVisualMediaRequest(
+                                                ActivityResultContracts.PickVisualMedia.ImageOnly
+                                            )
+                                        )
+                                    }
+                                },
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .neumorphicInset(shape = CircleShape),
-                                contentAlignment = Alignment.Center
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = if (slot.type == TemplateSlotType.TEXT) "✏️" else "📷",
-                                    fontSize = 16.sp
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .neumorphicInset(shape = CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (slot.type == TemplateSlotType.TEXT) "✏️" else "📷",
+                                        fontSize = 16.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = slot.label,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.5.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (slot.required) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(text = "*", color = CoralRed, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+
+                                    val previewDesc = when {
+                                        slot.type == TemplateSlotType.TEXT && isFilled -> "\"${rawValue as String}\""
+                                        slot.type == TemplateSlotType.IMAGE && isFilled -> "Custom photo attached ✓"
+                                        slot.required -> "Required • Tap to fill"
+                                        else -> "Optional • Tap to add"
+                                    }
+
+                                    Text(
+                                        text = previewDesc,
+                                        fontSize = 11.5.sp,
+                                        color = if (isFilled) SafeMint else SlateNeutral,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
 
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = slot.label,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.5.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    if (slot.required) {
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(text = "*", color = CoralRed, fontWeight = FontWeight.Bold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isFilled) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .background(SafeMint.copy(alpha = 0.2f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = SafeMint,
+                                            modifier = Modifier.size(14.dp)
+                                        )
                                     }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Change",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CoralRed,
+                                        modifier = Modifier.clickable {
+                                            if (slot.type == TemplateSlotType.TEXT) {
+                                                editingTextSlot = slot
+                                                textInputValue = (rawValue as? String).orEmpty()
+                                            } else {
+                                                activeImageSlotId = slot.id
+                                                photoPickerLauncher.launch(
+                                                    androidx.activity.result.PickVisualMediaRequest(
+                                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Clear",
+                                        tint = SlateNeutral,
+                                        modifier = Modifier
+                                            .size(18.dp)
+                                            .clickable { viewModel.clearSlotValue(slot.id) }
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Edit ›",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CoralRed
+                                    )
                                 }
-
-                                val previewDesc = when {
-                                    slot.type == TemplateSlotType.TEXT && isFilled -> "\"${rawValue as String}\""
-                                    slot.type == TemplateSlotType.IMAGE && isFilled -> "Custom photo attached ✓"
-                                    slot.required -> "Required • Tap to fill"
-                                    else -> "Optional • Tap to add"
-                                }
-
-                                Text(
-                                    text = previewDesc,
-                                    fontSize = 11.5.sp,
-                                    color = if (isFilled) SafeMint else SlateNeutral,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                             }
                         }
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (isFilled) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .background(SafeMint.copy(alpha = 0.2f), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = SafeMint,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Clear",
-                                    tint = SlateNeutral,
-                                    modifier = Modifier
-                                        .size(18.dp)
-                                        .clickable { viewModel.clearSlotValue(slot.id) }
-                                )
-                            } else {
+                        // Shape selector for Image slots
+                        if (slot.type == TemplateSlotType.IMAGE) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            val currentShape = state.slotShapes[slot.id] ?: "CIRCLE"
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = "Edit ›",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = CoralRed
+                                    text = "Logo / Avatar Shape:",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    // Circle Button
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .background(if (currentShape == "CIRCLE") CoralRed else SlateNeutral.copy(alpha = 0.15f))
+                                            .clickable { viewModel.setSlotShape(slot.id, "CIRCLE") }
+                                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "⚪ Circle",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (currentShape == "CIRCLE") Color.White else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    // Square Button
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(if (currentShape == "SQUARE") CoralRed else SlateNeutral.copy(alpha = 0.15f))
+                                            .clickable { viewModel.setSlotShape(slot.id, "SQUARE") }
+                                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "⬛ Square",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (currentShape == "SQUARE") Color.White else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

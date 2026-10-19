@@ -26,7 +26,8 @@ class TemplateRendererService {
     suspend fun renderTemplate(
         baseBitmap: Bitmap,
         template: BannerTemplate,
-        slotValues: Map<String, Any>
+        slotValues: Map<String, Any>,
+        slotShapes: Map<String, String> = emptyMap()
     ): ByteArray = withContext(Dispatchers.Default) {
         val workingBitmap = if (baseBitmap.isMutable) {
             baseBitmap
@@ -50,7 +51,8 @@ class TemplateRendererService {
                 TemplateSlotType.IMAGE -> {
                     val imgBytes = value as? ByteArray
                     if (imgBytes != null && imgBytes.isNotEmpty()) {
-                        drawImageSlot(canvas, imgBytes, rect)
+                        val isCircle = (slotShapes[slot.id] ?: "CIRCLE").equals("CIRCLE", ignoreCase = true)
+                        drawImageSlot(canvas, imgBytes, rect, isCircle)
                     }
                 }
             }
@@ -133,7 +135,8 @@ class TemplateRendererService {
     private fun drawImageSlot(
         canvas: Canvas,
         imageBytes: ByteArray,
-        rect: SlotRect
+        rect: SlotRect,
+        isCircle: Boolean = false
     ) {
         try {
             val options = BitmapFactory.Options().apply {
@@ -161,7 +164,17 @@ class TemplateRendererService {
                 isDither = true
             }
 
-            canvas.drawBitmap(logoBitmap, null, destRect, paint)
+            if (isCircle) {
+                canvas.save()
+                val path = android.graphics.Path().apply {
+                    addOval(destRect, android.graphics.Path.Direction.CW)
+                }
+                canvas.clipPath(path)
+                canvas.drawBitmap(logoBitmap, null, destRect, paint)
+                canvas.restore()
+            } else {
+                canvas.drawBitmap(logoBitmap, null, destRect, paint)
+            }
             logoBitmap.recycle()
         } catch (e: Exception) {
             Log.e(TAG, "Error drawing image slot", e)
