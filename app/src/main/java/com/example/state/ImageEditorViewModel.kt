@@ -197,7 +197,11 @@ class ImageEditorViewModel : ViewModel() {
         val effectiveRatio = if (isYouTubePreset) "16:9" else current.selectedAspectRatio
 
         val promptToSend = if (isYouTubePreset && current.mode == ImageEditorMode.CREATE) {
-            "Cinematic 16:9 widescreen YouTube banner artwork, balanced horizontal composition with focal subjects centered: " + current.prompt.trim()
+            "Official YouTube channel banner masterpiece, 2560x1440 widescreen 16:9 aspect ratio. " +
+            "CRITICAL SAFE-ZONE COMPOSITION RULES: All primary focal subjects, titles, typography, channel name text, badges, characters, and logos MUST be strictly composed inside the central horizontal mobile safe zone (middle 30% vertical height, centered between 35% and 65% of the canvas height, strictly inside Y: 508 to 931 px, never touching top or bottom edges). " +
+            "The upper 35% and lower 35% of the frame must be continuous atmospheric ambient environment with cinematic depth-of-field blur, dark textures, and subtle champagne gold glowing light rim streaks along the horizontal safe margins. " +
+            "Balanced horizontal layout: left focal emblem or sphere graphic, center bold primary title text and subtitle badge, right high-tech reticle or HUD detail. " +
+            "Masterpiece quality, 8k, professional graphic design, perfect YouTube mobile safe zone alignment: " + current.prompt.trim()
         } else {
             current.prompt
         }

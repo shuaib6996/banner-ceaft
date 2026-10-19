@@ -333,6 +333,75 @@ fun ImageEditorScreen(
                         maxLines = 4
                     )
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Quick Prompt Inspiration Chips
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(SafeMint.copy(alpha = 0.15f))
+                                    .clickable {
+                                        imageEditorViewModel.updatePrompt(
+                                            "AI Vision Mind, presented by Shuaib Jaxon, futuristic cyber studio with glowing AI neural network sphere on left, 3D chrome metallic title 'AI VISION MIND', tech badge 'PRESENTED BY SHUAIB JAXON', and cyber HUD reticle on right"
+                                        )
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "⚡ AI Vision Mind",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SafeMint
+                                )
+                            }
+                        }
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                                    .clickable {
+                                        imageEditorViewModel.updatePrompt(
+                                            "Cyberpunk neon dragon gaming banner, glowing circuit grid, clan crest on left, bold futuristic title 'CYBER STRIKE', stream times badge"
+                                        )
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "🎮 Cyber Gaming",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                                    .clickable {
+                                        imageEditorViewModel.updatePrompt(
+                                            "Obsidian dark metallic faceted background, champagne gold light beams, bold luxury title 'NEXUS PRO', minimalist subtitle badge"
+                                        )
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "✨ Obsidian Luxury",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(14.dp))
 
                     // YouTube Banner Target Device Selector

@@ -353,8 +353,7 @@ fun TemplateCustomizeScreen(
                                 )
                                 .then(
                                     if (isFilled) {
-                                        if (isText) Modifier.background(Color.Black.copy(alpha = 0.15f))
-                                        else Modifier.background(Color.Black.copy(alpha = 0.25f))
+                                        Modifier.background(Color.Transparent)
                                     } else if (slot.required) {
                                         Modifier
                                             .border(1.5.dp, CoralRed, if (slot.type == TemplateSlotType.IMAGE && currentShape == "CIRCLE") CircleShape else RoundedCornerShape(6.dp))
@@ -394,7 +393,7 @@ fun TemplateCustomizeScreen(
                                     else -> TextAlign.Center
                                 }
                                 val baseSize = (slot.defaultStyle?.fontSize ?: 64f) * scaleY.value * 0.92f
-                                val fontSp = baseSize.coerceIn(10f, 14f).sp
+                                val fontSp = baseSize.coerceIn(9f, 22f).sp
 
                                 if (textContent.isNotBlank()) {
                                     Text(

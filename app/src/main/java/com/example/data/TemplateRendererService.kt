@@ -94,7 +94,8 @@ class TemplateRendererService {
             } else {
                 Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
             }
-            setShadowLayer(8f, 2f, 2f, Color.argb(190, 0, 0, 0))
+            setShadowLayer(10f, 2f, 2f, Color.argb(220, 0, 0, 0))
+            letterSpacing = 0.04f
         }
 
         var fontSize = baseFontSize

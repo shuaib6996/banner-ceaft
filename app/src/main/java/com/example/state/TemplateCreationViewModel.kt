@@ -86,10 +86,18 @@ class TemplateCreationViewModel(application: Application) : AndroidViewModel(app
      * Selects a template and resets slotValues map (Edge case requirement 7).
      */
     fun selectTemplate(template: BannerTemplate) {
+        val initialValues = if (template.id == "tpl_ai_vision_mind") {
+            mapOf(
+                "slot_title" to "AI VISION MIND",
+                "slot_tagline" to "PRESENTED BY SHUAIB JAXON"
+            )
+        } else {
+            emptyMap()
+        }
         _state.update {
             it.copy(
                 selectedTemplate = template,
-                slotValues = emptyMap(),
+                slotValues = initialValues,
                 slotShapes = emptyMap(),
                 masterCanvasBytes = null,
                 finalRenderedBytes = null,
@@ -143,7 +151,7 @@ class TemplateCreationViewModel(application: Application) : AndroidViewModel(app
 
     /**
      * Composites template background + filled slots into a final 2560x1440 banner,
-     * then calibrates for the selected device resolution (1546x423 for Phone Safe, 2560x423 for Desktop, 2560x1440 for Full TV).
+     * maintaining 100% YouTube Studio upload compliance (>= 2048x1152).
      */
     suspend fun renderFinalBanner(
         context: Context,
@@ -166,9 +174,9 @@ class TemplateCreationViewModel(application: Application) : AndroidViewModel(app
                 slotShapes = current.slotShapes
             )
 
-            // 2. Crop/scale to target device (Phone Safe 1546x423, Desktop 2560x423, Full TV 2560x1440)
-            val target = YouTubeBannerTarget.fromLabel(targetDevice)
-            val calibratedBytes = imageProcessingService.cropToYouTubeTarget(masterBytes, target)
+            // 2. Template backgrounds and slots are already designed on 2560x1440 with safe-zone alignment.
+            // Preserving masterBytes ensures full-fidelity resolution for YouTube Studio upload without re-blurring.
+            val calibratedBytes = masterBytes
 
             _state.update {
                 it.copy(

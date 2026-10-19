@@ -1,6 +1,42 @@
 {
   "templates": [
     {
+      "id": "tpl_ai_vision_mind",
+      "name": "AI Vision Mind",
+      "category": "Tech",
+      "description": "Sleek AI cyber studio with neural network sphere, tech HUD reticle, champagne gold beams, and faceted 3D metallic depth.",
+      "thumbnailAsset": "templates/thumbs/thumb_ai_vision_mind.png",
+      "backgroundAsset": "templates/bg_ai_vision_mind.png",
+      "slots": [
+        {
+          "id": "slot_title",
+          "type": "text",
+          "label": "Channel Name",
+          "required": true,
+          "rect": { "x": 600, "y": 555, "width": 1360, "height": 190 },
+          "defaultStyle": {
+            "fontSize": 92,
+            "colorHex": "#EDE9FE",
+            "isBold": true,
+            "alignment": "CENTER"
+          }
+        },
+        {
+          "id": "slot_tagline",
+          "type": "text",
+          "label": "Presented By / Subtitle",
+          "required": false,
+          "rect": { "x": 750, "y": 765, "width": 1060, "height": 85 },
+          "defaultStyle": {
+            "fontSize": 34,
+            "colorHex": "#E2E8F0",
+            "isBold": false,
+            "alignment": "CENTER"
+          }
+        }
+      ]
+    },
+    {
       "id": "tpl_gaming_neon",
       "name": "Neon Cyber Strike",
       "category": "Gaming",

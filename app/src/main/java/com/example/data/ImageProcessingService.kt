@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import kotlin.math.max
+import kotlin.math.min
 
 class ImageProcessingException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
@@ -182,59 +183,121 @@ class ImageProcessingService {
                 }
             }
 
-            // Target is MOBILE or DESKTOP: Generate 2560x1440 YouTube-ready banner with blurred top/bottom
+            // Target is MOBILE or DESKTOP: Generate 2560x1440 YouTube-ready banner with clean ambient background
             val resultBitmap = Bitmap.createBitmap(2560, 1440, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(resultBitmap)
 
-            // 1. Create blurred atmospheric background from the artwork
-            val downscaleW = 160
-            val downscaleH = 90
-            val downscaled = Bitmap.createScaledBitmap(canvasBitmap, downscaleW, downscaleH, true)
-            val blurredSmall = fastBoxBlur(downscaled, radius = 4, passes = 2)
-            if (downscaled != blurredSmall) downscaled.recycle()
-
-            val blurredBig = Bitmap.createScaledBitmap(blurredSmall, 2560, 1440, true)
-            blurredSmall.recycle()
-
-            // Draw blurred background
-            canvas.drawBitmap(blurredBig, 0f, 0f, null)
-            blurredBig.recycle()
-
-            // Apply ~30% dark overlay across blurred background for depth and contrast
-            val darkOverlayPaint = Paint().apply {
-                color = Color.argb(75, 0, 0, 0)
-                style = Paint.Style.FILL
-            }
-            canvas.drawRect(0f, 0f, 2560f, 1440f, darkOverlayPaint)
-
-            // 2. Draw the sharp middle safe zone banner strip (height 423, Y: 508..931)
             val safeY = TargetDimensions.YOUTUBE_MOBILE_SAFE_AREA.y // 508
             val safeHeight = TargetDimensions.YOUTUBE_MOBILE_SAFE_AREA.height // 423
             val bottomY = safeY + safeHeight // 931
 
-            val stripSrcRect = Rect(0, safeY, 2560, bottomY)
-            val stripDstRect = Rect(0, safeY, 2560, bottomY)
-            canvas.drawBitmap(canvasBitmap, stripSrcRect, stripDstRect, null)
-
-            // 3. Draw sleek glowing rim divider lines (as in reference image)
-            val cyanGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.argb(95, 0, 220, 255)
-                strokeWidth = 4f
-                style = Paint.Style.STROKE
+            // 1. Draw clean, simple, dark ambient background across the 2560x1440 canvas (matching reference)
+            // Center is subtle deep charcoal (#181520), edges fade to deep black (#0B0910)
+            val ambientGradient = android.graphics.RadialGradient(
+                1280f, 720f, 1500f,
+                intArrayOf(
+                    Color.argb(255, 24, 20, 30),
+                    Color.argb(255, 16, 13, 20),
+                    Color.argb(255, 10, 8, 14)
+                ),
+                floatArrayOf(0f, 0.55f, 1f),
+                android.graphics.Shader.TileMode.CLAMP
+            )
+            val bgPaint = Paint().apply {
+                shader = ambientGradient
+                style = Paint.Style.FILL
             }
-            val crispLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.argb(230, 255, 255, 255)
-                strokeWidth = 2f
-                style = Paint.Style.STROKE
+            canvas.drawRect(0f, 0f, 2560f, 1440f, bgPaint)
+
+            // 2. Target the safe zone (height 423, Y: 508..931) for the prompt's artwork:
+            // Scale artwork so its height fits inside the safe zone (423px) so all content is preserved
+            val artScale = safeHeight.toFloat() / sourceBitmap.height.toFloat()
+            val scaledArtW = max(1, (sourceBitmap.width * artScale).toInt())
+            val scaledArtH = safeHeight
+            val scaledArtwork = Bitmap.createScaledBitmap(sourceBitmap, scaledArtW, scaledArtH, true)
+
+            if (scaledArtW <= 2560) {
+                val xOffset = (2560 - scaledArtW) / 2f
+                canvas.drawBitmap(scaledArtwork, xOffset, safeY.toFloat(), null)
+
+                // Soft horizontal feather at left and right edges so it blends seamlessly into the dark ambient stage
+                val fadeWidth = min(140f, scaledArtW / 4f)
+                if (fadeWidth > 0f) {
+                    val leftFadeShader = android.graphics.LinearGradient(
+                        xOffset, safeY.toFloat(), xOffset + fadeWidth, safeY.toFloat(),
+                        Color.argb(255, 24, 20, 30), Color.TRANSPARENT,
+                        android.graphics.Shader.TileMode.CLAMP
+                    )
+                    val leftFadePaint = Paint().apply {
+                        shader = leftFadeShader
+                        style = Paint.Style.FILL
+                    }
+                    canvas.drawRect(xOffset, safeY.toFloat(), xOffset + fadeWidth, bottomY.toFloat(), leftFadePaint)
+
+                    val rightFadeShader = android.graphics.LinearGradient(
+                        xOffset + scaledArtW - fadeWidth, safeY.toFloat(), xOffset + scaledArtW, safeY.toFloat(),
+                        Color.TRANSPARENT, Color.argb(255, 24, 20, 30),
+                        android.graphics.Shader.TileMode.CLAMP
+                    )
+                    val rightFadePaint = Paint().apply {
+                        shader = rightFadeShader
+                        style = Paint.Style.FILL
+                    }
+                    canvas.drawRect(xOffset + scaledArtW - fadeWidth, safeY.toFloat(), xOffset + scaledArtW, bottomY.toFloat(), rightFadePaint)
+                }
+            } else {
+                val cropX = (scaledArtW - 2560) / 2
+                val srcRect = Rect(cropX, 0, cropX + 2560, safeHeight)
+                val dstRect = Rect(0, safeY, 2560, bottomY)
+                canvas.drawBitmap(scaledArtwork, srcRect, dstRect, null)
+            }
+            if (scaledArtwork != sourceBitmap) scaledArtwork.recycle()
+
+            // 3. Draw sleek champagne gold glowing rim divider lines (as in reference image)
+            fun drawGoldenRimLine(yPos: Float) {
+                val gradient = android.graphics.LinearGradient(
+                    0f, yPos, 2560f, yPos,
+                    intArrayOf(
+                        Color.argb(0, 245, 222, 179),
+                        Color.argb(80, 245, 222, 179),
+                        Color.argb(240, 255, 245, 220),
+                        Color.argb(80, 245, 222, 179),
+                        Color.argb(0, 245, 222, 179)
+                    ),
+                    floatArrayOf(0f, 0.22f, 0.5f, 0.78f, 1f),
+                    android.graphics.Shader.TileMode.CLAMP
+                )
+
+                // Wide soft atmospheric bloom
+                val bloomPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = gradient
+                    strokeWidth = 10f
+                    style = Paint.Style.STROKE
+                    alpha = 70
+                }
+                canvas.drawLine(0f, yPos, 2560f, yPos, bloomPaint)
+
+                // Core champagne glow
+                val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = gradient
+                    strokeWidth = 4f
+                    style = Paint.Style.STROKE
+                    alpha = 160
+                }
+                canvas.drawLine(0f, yPos, 2560f, yPos, glowPaint)
+
+                // White-hot center light line
+                val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    shader = gradient
+                    strokeWidth = 1.5f
+                    style = Paint.Style.STROKE
+                    alpha = 245
+                }
+                canvas.drawLine(0f, yPos, 2560f, yPos, corePaint)
             }
 
-            // Top divider at Y = 508
-            canvas.drawLine(0f, safeY.toFloat() - 1f, 2560f, safeY.toFloat() - 1f, cyanGlowPaint)
-            canvas.drawLine(0f, safeY.toFloat(), 2560f, safeY.toFloat(), crispLinePaint)
-
-            // Bottom divider at Y = 931
-            canvas.drawLine(0f, bottomY.toFloat(), 2560f, bottomY.toFloat(), crispLinePaint)
-            canvas.drawLine(0f, bottomY.toFloat() + 1f, 2560f, bottomY.toFloat() + 1f, cyanGlowPaint)
+            drawGoldenRimLine(safeY.toFloat())
+            drawGoldenRimLine(bottomY.toFloat())
 
             if (canvasBitmap != sourceBitmap && canvasBitmap != resultBitmap) {
                 canvasBitmap.recycle()

@@ -215,10 +215,13 @@ class BannerCreationViewModel : ViewModel() {
 
         // 1. Clean Widescreen Framing Guidance (Safe, artistic, zero safety trigger words)
         val targetMode = current.targetDeviceMode
-        if (targetMode.contains("mobile", ignoreCase = true) || targetMode.contains("phone", ignoreCase = true) || targetMode.contains("1546", ignoreCase = true)) {
-            promptParts.add("Cinematic widescreen YouTube channel banner artwork, balanced horizontal composition with focal subjects centered.")
-        } else if (targetMode.contains("desktop", ignoreCase = true)) {
-            promptParts.add("Cinematic widescreen desktop banner artwork, wide panoramic composition.")
+        if (targetMode.contains("mobile", ignoreCase = true) || targetMode.contains("phone", ignoreCase = true) || targetMode.contains("1546", ignoreCase = true) || targetMode.contains("desktop", ignoreCase = true) || targetMode.contains("2560", ignoreCase = true)) {
+            promptParts.add(
+                "Official YouTube channel banner masterpiece, 2560x1440 widescreen 16:9 aspect ratio. " +
+                "CRITICAL SAFE-ZONE COMPOSITION RULES: All primary focal subjects, titles, typography, channel name text, badges, characters, and logos MUST be strictly composed inside the central horizontal mobile safe zone (middle 30% vertical height, centered between 35% and 65% of the canvas height, strictly inside Y: 508 to 931 px, never touching top or bottom edges). " +
+                "The upper 35% and lower 35% of the frame must be continuous atmospheric ambient environment with cinematic depth-of-field blur, dark textures, and subtle champagne gold glowing light rim streaks along the horizontal safe margins. " +
+                "Balanced horizontal layout: left focal emblem, center bold primary subject or title, right complementary thematic detail."
+            )
         } else {
             promptParts.add("Cinematic 16:9 widescreen YouTube banner artwork, centered composition.")
         }
